@@ -6,20 +6,12 @@ import { useIssue, useComments, useCreateComment } from '@/hooks/use-issue';
 import { useUpdateIssue, useDeleteIssue } from '@/hooks/use-issues';
 import { useMembers } from '@/hooks/use-orgs';
 import { useActiveOrg } from '@/hooks/use-active-org';
-import {
-  PRIORITIES,
-  PRIORITY_LABEL,
-  STATUSES,
-  STATUS_LABEL,
-  type IssuePriority,
-  type IssueStatus,
-} from '@/lib/types';
 import { cn, timeAgo } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
-import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { StatusIcon, PriorityIcon } from './indicators';
+import { AssigneeMenu, PriorityMenu, StatusMenu } from './property-menus';
 
 export function IssueDetailPanel({
   issueId,
@@ -134,59 +126,23 @@ export function IssueDetailPanel({
               {/* Properties */}
               <div className="mt-4 space-y-3 rounded-lg border border-border-subtle bg-surface/40 p-3">
                 <PropertyRow label="Status">
-                  <Select
-                    className="h-8"
+                  <StatusMenu
                     value={issue.status}
-                    onChange={(e) =>
-                      update.mutate({
-                        id: issue.id,
-                        patch: { status: e.target.value as IssueStatus },
-                      })
-                    }
-                  >
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {STATUS_LABEL[s]}
-                      </option>
-                    ))}
-                  </Select>
+                    onChange={(status) => update.mutate({ id: issue.id, patch: { status } })}
+                  />
                 </PropertyRow>
                 <PropertyRow label="Priority">
-                  <Select
-                    className="h-8"
+                  <PriorityMenu
                     value={issue.priority}
-                    onChange={(e) =>
-                      update.mutate({
-                        id: issue.id,
-                        patch: { priority: e.target.value as IssuePriority },
-                      })
-                    }
-                  >
-                    {PRIORITIES.map((p) => (
-                      <option key={p} value={p}>
-                        {PRIORITY_LABEL[p]}
-                      </option>
-                    ))}
-                  </Select>
+                    onChange={(priority) => update.mutate({ id: issue.id, patch: { priority } })}
+                  />
                 </PropertyRow>
                 <PropertyRow label="Assignee">
-                  <Select
-                    className="h-8"
-                    value={issue.assigneeId ?? ''}
-                    onChange={(e) =>
-                      update.mutate({
-                        id: issue.id,
-                        patch: { assigneeId: e.target.value || null },
-                      })
-                    }
-                  >
-                    <option value="">Unassigned</option>
-                    {members?.map((m) => (
-                      <option key={m.userId} value={m.userId}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </Select>
+                  <AssigneeMenu
+                    value={issue.assigneeId}
+                    members={members ?? []}
+                    onChange={(assigneeId) => update.mutate({ id: issue.id, patch: { assigneeId } })}
+                  />
                 </PropertyRow>
                 <div className="flex items-center justify-between px-1 pt-1 text-xs text-faint">
                   <span className="inline-flex items-center gap-1.5">
