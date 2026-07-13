@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMe } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
+import { CommandPalette } from '@/components/command-palette';
 import { Spinner } from '@/components/ui/spinner';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -30,6 +31,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <Topbar user={user} />
         <main className="min-h-0 flex-1 overflow-auto scrollbar-thin">{children}</main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

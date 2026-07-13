@@ -24,6 +24,10 @@ interface UIState {
   /** Mobile sidebar drawer (not persisted). */
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+
+  /** Command palette (⌘K). Not persisted. */
+  commandOpen: boolean;
+  setCommandOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -42,6 +46,9 @@ export const useUIStore = create<UIState>()(
 
       sidebarOpen: false,
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
+
+      commandOpen: false,
+      setCommandOpen: (open) => set({ commandOpen: open }),
     }),
     {
       name: 'tracer-ui',
