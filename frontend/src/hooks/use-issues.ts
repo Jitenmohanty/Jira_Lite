@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { emitToast } from '@/lib/toast-bus';
 import type { Issue, IssueDetail, IssuePriority, IssueStatus } from '@/lib/types';
 
 export interface IssueFilters {
@@ -41,7 +42,10 @@ export function useCreateIssue(projectId: string) {
       priority?: IssuePriority;
       assigneeId?: string | null;
     }) => api.post<{ issue: Issue }>(`/projects/${projectId}/issues`, input).then((r) => r.issue),
-    onSuccess: () => qc.invalidateQueries({ queryKey: issuesRoot(projectId) }),
+    onSuccess: (issue) => {
+      qc.invalidateQueries({ queryKey: issuesRoot(projectId) });
+      emitToast({ variant: 'success', title: `Created ${issue.identifier}` });
+    },
   });
 }
 
@@ -71,6 +75,11 @@ export function useUpdateIssue(projectId: string) {
     },
     onError: (_err, _vars, ctx) => {
       ctx?.previous?.forEach(([key, data]) => qc.setQueryData(key, data));
+      emitToast({
+        variant: 'error',
+        title: 'Update failed',
+        description: 'Your change was reverted.',
+      });
     },
     onSettled: (_data, _err, vars) => {
       qc.invalidateQueries({ queryKey: issuesRoot(projectId) });
