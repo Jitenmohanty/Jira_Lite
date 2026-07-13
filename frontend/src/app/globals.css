@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens — dark-first, Linear-inspired.
+ * Colors are stored as space-separated RGB channels so Tailwind's `<alpha-value>`
+ * opacity modifiers work (e.g. `bg-accent/10`). The dark theme is the default
+ * (:root); the light theme is applied via `.light` on <html>.
+ */
+:root,
+:root.dark {
+  --background: 8 9 10; /* app canvas */
+  --surface: 20 21 23; /* cards, panels */
+  --surface-hover: 28 29 32;
+  --surface-elevated: 32 33 37; /* modals, popovers */
+  --border: 38 40 43;
+  --border-subtle: 28 29 32;
+
+  --foreground: 233 234 236; /* primary text */
+  --muted: 138 143 152; /* secondary text */
+  --faint: 90 95 104; /* tertiary / placeholder */
+
+  --accent: 94 106 210; /* brand indigo */
+  --accent-hover: 110 121 224;
+  --accent-foreground: 255 255 255;
+
+  --success: 76 175 118;
+  --warning: 227 179 65;
+  --danger: 229 92 92;
+
+  /* Issue status */
+  --status-backlog: 138 143 152;
+  --status-todo: 158 163 172;
+  --status-in-progress: 227 179 65;
+  --status-done: 94 106 210;
+  --status-cancelled: 100 105 114;
+
+  /* Issue priority */
+  --priority-none: 100 105 114;
+  --priority-low: 118 168 231;
+  --priority-medium: 227 179 65;
+  --priority-high: 232 138 71;
+  --priority-urgent: 229 92 92;
+
+  --ring: 94 106 210;
+}
+
+:root.light {
+  --background: 252 252 253;
+  --surface: 255 255 255;
+  --surface-hover: 245 246 248;
+  --surface-elevated: 255 255 255;
+  --border: 226 228 232;
+  --border-subtle: 237 238 241;
+
+  --foreground: 23 25 29;
+  --muted: 96 102 112;
+  --faint: 148 154 164;
+
+  --accent: 88 100 205;
+  --accent-hover: 74 86 195;
+  --accent-foreground: 255 255 255;
+
+  --success: 45 155 95;
+  --warning: 190 145 30;
+  --danger: 210 60 60;
+
+  --status-backlog: 120 126 136;
+  --status-todo: 96 102 112;
+  --status-in-progress: 190 145 30;
+  --status-done: 88 100 205;
+  --status-cancelled: 148 154 164;
+
+  --priority-none: 148 154 164;
+  --priority-low: 70 120 200;
+  --priority-medium: 190 145 30;
+  --priority-high: 205 110 45;
+  --priority-urgent: 210 60 60;
+
+  --ring: 88 100 205;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    color-scheme: dark;
+  }
+  html.light {
+    color-scheme: light;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
+  }
+  /* Refined focus ring for keyboard users only. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring/60 ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  /* Thin, unobtrusive scrollbars matching the surface. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--border));
+    border-radius: 9999px;
+  }
+}
