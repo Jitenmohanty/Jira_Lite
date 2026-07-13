@@ -50,13 +50,103 @@ npm run dev            # http://localhost:3000
 ## Domain model
 
 `users`, `organizations`, `memberships` (RBAC: owner / admin / member), `projects`, `issues`
-(per-project sequential number like `TRC-14`), `comments`, and `activity`. Full schema, ER
-diagram, and engineering-decision notes will live here as the build progresses.
+(per-project sequential number like `TRC-14`), `comments`, and `activity`.
+
+```mermaid
+erDiagram
+    users ||--o{ memberships : has
+    organizations ||--o{ memberships : has
+    organizations ||--o{ projects : owns
+    organizations ||--o{ activity : records
+    projects ||--o{ issues : contains
+    users ||--o{ issues : reports
+    users |o--o{ issues : "assigned to"
+    issues ||--o{ comments : has
+    users ||--o{ comments : writes
+    users ||--o{ activity : "acts as actor"
+
+    users {
+        uuid id PK
+        varchar email UK
+        varchar name
+        text password_hash
+        text avatar_url
+        timestamptz created_at
+    }
+    organizations {
+        uuid id PK
+        varchar name
+        varchar slug UK
+        timestamptz created_at
+    }
+    memberships {
+        uuid user_id PK,FK
+        uuid org_id PK,FK
+        role role "owner | admin | member"
+        timestamptz created_at
+    }
+    projects {
+        uuid id PK
+        uuid org_id FK
+        varchar name
+        varchar key "unique per org, e.g. TRC"
+        text description
+        integer issue_counter "backs sequential issue_number"
+        timestamptz created_at
+    }
+    issues {
+        uuid id PK
+        uuid project_id FK
+        integer issue_number "unique per project"
+        varchar title
+        text description
+        issue_status status "backlog|todo|in_progress|done|cancelled"
+        issue_priority priority "none|low|medium|high|urgent"
+        uuid assignee_id FK "nullable"
+        uuid reporter_id FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    comments {
+        uuid id PK
+        uuid issue_id FK
+        uuid author_id FK
+        text body
+        timestamptz created_at
+    }
+    activity {
+        uuid id PK
+        uuid org_id FK
+        uuid actor_id FK
+        varchar entity_type
+        uuid entity_id
+        varchar action
+        jsonb metadata
+        timestamptz created_at
+    }
+```
+
+**Key relationships & rules**
+
+- **Multi-tenancy:** everything hangs off `organizations`. A `user` joins an org through a
+  `membership`, which carries their `role`. RBAC (`owner` > `admin` > `member`) is enforced in
+  backend middleware.
+- **Issues** belong to a `project` (which belongs to an org). `reporter_id` is required;
+  `assignee_id` is nullable and set to `NULL` if the user is removed. `issue_number` is unique
+  per project and generated via the project's `issue_counter` under a row lock to stay correct
+  under concurrent inserts.
+- **Cascades:** deleting an org removes its memberships, projects (and their issues, comments)
+  and activity. Deleting an issue removes its comments.
+- **`activity`** is an append-only audit log powering the feed; `metadata` (jsonb) holds
+  action-specific detail such as `{ from: "todo", to: "in_progress" }`.
+
+Indexes: `issues.project_id`, `issues.assignee_id`, `memberships.org_id`, `projects.org_id`,
+`activity.org_id`, plus unique indexes on `(project_id, issue_number)` and `(org_id, key)`.
 
 ## Roadmap
 
 - [x] Stage 0 — Scaffold & tooling
-- [ ] Stage 1 — Database & schema
+- [x] Stage 1 — Database & schema
 - [ ] Stage 2 — Auth (JWT cookie, RBAC middleware)
 - [ ] Stage 3 — Core API (orgs, projects, issues, comments, activity)
 - [ ] Stage 4 — Frontend foundation (auth pages, app shell)
