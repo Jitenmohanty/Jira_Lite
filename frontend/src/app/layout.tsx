@@ -29,6 +29,14 @@ export default function RootLayout({
   // client-side theme read from flagging a mismatch.
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        {/* Apply the persisted theme before paint to avoid a flash. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('tracer-theme');if(t==='light'){document.documentElement.classList.remove('dark');document.documentElement.classList.add('light');}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
         <AppProviders>{children}</AppProviders>
       </body>

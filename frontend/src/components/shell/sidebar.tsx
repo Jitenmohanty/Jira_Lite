@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Activity, Layers, Plus, Settings } from 'lucide-react';
 import { useActiveOrg } from '@/hooks/use-active-org';
 import { useProjects } from '@/hooks/use-projects';
+import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
 import { OrgSwitcher } from './org-switcher';
 import { CreateProjectDialog } from './create-project-dialog';
@@ -18,9 +19,25 @@ export function Sidebar() {
   const { data: projects, isLoading } = useProjects(org?.id);
   const [projectDialog, setProjectDialog] = useState(false);
   const [orgDialog, setOrgDialog] = useState(false);
+  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface/40">
+    <>
+      {/* Backdrop on mobile when the drawer is open. */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden
+        />
+      )}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-30 flex w-60 shrink-0 flex-col border-r border-border bg-surface transition-transform md:static md:z-auto md:translate-x-0 md:bg-surface/40',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
       <div className="p-2">
         <OrgSwitcher onCreateOrg={() => setOrgDialog(true)} />
       </div>
@@ -76,6 +93,7 @@ export function Sidebar() {
             <Link
               key={p.id}
               href={`/app/projects/${p.id}`}
+              onClick={() => setSidebarOpen(false)}
               className={cn(
                 'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
                 active
@@ -100,7 +118,8 @@ export function Sidebar() {
         />
       )}
       <CreateOrgDialog open={orgDialog} onClose={() => setOrgDialog(false)} />
-    </aside>
+      </aside>
+    </>
   );
 }
 
@@ -115,9 +134,11 @@ function NavLink({
   active: boolean;
   children: React.ReactNode;
 }) {
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   return (
     <Link
       href={href}
+      onClick={() => setSidebarOpen(false)}
       className={cn(
         'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
         active

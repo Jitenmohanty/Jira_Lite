@@ -20,6 +20,10 @@ interface UIState {
   createIssueStatus: IssueStatus | null;
   openCreateIssue: (status?: IssueStatus) => void;
   closeCreateIssue: () => void;
+
+  /** Mobile sidebar drawer (not persisted). */
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -35,6 +39,9 @@ export const useUIStore = create<UIState>()(
       createIssueStatus: null,
       openCreateIssue: (status) => set({ createIssueOpen: true, createIssueStatus: status ?? null }),
       closeCreateIssue: () => set({ createIssueOpen: false, createIssueStatus: null }),
+
+      sidebarOpen: false,
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
     }),
     {
       name: 'tracer-ui',

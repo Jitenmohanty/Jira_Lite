@@ -2,14 +2,17 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 import { useLogout } from '@/hooks/use-auth';
+import { useUIStore } from '@/stores/ui-store';
 import { Avatar } from '@/components/ui/avatar';
+import { ThemeToggle } from './theme-toggle';
 import type { User } from '@/lib/types';
 
 export function Topbar({ user }: { user: User }) {
   const router = useRouter();
   const logout = useLogout();
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const [open, setOpen] = useState(false);
 
   const onLogout = async () => {
@@ -20,11 +23,20 @@ export function Topbar({ user }: { user: User }) {
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
       <div className="flex items-center gap-2 text-sm text-muted">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="rounded-md p-1 text-muted transition-colors hover:bg-surface-hover hover:text-foreground md:hidden"
+          aria-label="Open menu"
+        >
+          <Menu size={18} />
+        </button>
         <span className="inline-block h-2 w-2 rounded-sm bg-accent" />
         <span className="font-medium text-foreground">Tracer</span>
       </div>
 
-      <div className="relative">
+      <div className="flex items-center gap-1">
+        <ThemeToggle />
+        <div className="relative">
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-surface-hover"
@@ -52,6 +64,7 @@ export function Topbar({ user }: { user: User }) {
             </div>
           </>
         )}
+        </div>
       </div>
     </header>
   );
