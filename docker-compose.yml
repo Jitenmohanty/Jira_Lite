@@ -1,0 +1,49 @@
+# Local, one-command stack: Postgres + Tracer API + Tracer web.
+#   docker compose up --build
+# Then open http://localhost:3000 (demo: owner@tracer.dev / password123 — run
+# `docker compose exec backend npm run db:seed` to load demo data).
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tracer
+      POSTGRES_PASSWORD: tracer
+      POSTGRES_DB: tracer
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tracer']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      # Local demo runs over http, so keep dev mode (secure cookies need HTTPS).
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgres://tracer:tracer@db:5432/tracer
+      JWT_SECRET: local-compose-secret-change-me-please
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - '4000:4000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the client bundle — the URL the browser uses.
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
