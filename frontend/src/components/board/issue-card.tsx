@@ -21,7 +21,8 @@ export function IssueCard({
     <div
       onClick={onClick}
       className={cn(
-        'group cursor-pointer rounded-md border border-border bg-surface p-2.5 shadow-sm transition-colors hover:border-accent/40 hover:bg-surface-hover',
+        'group cursor-pointer rounded-md border border-border bg-surface p-2.5 shadow-sm transition-all duration-150',
+        'hover:-translate-y-0.5 hover:border-accent/40 hover:bg-surface-hover hover:shadow-md',
         className,
       )}
     >

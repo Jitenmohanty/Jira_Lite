@@ -26,7 +26,9 @@ export function BoardColumn({
       <div className="mb-2 flex items-center gap-2 px-1">
         <StatusIcon status={status} />
         <span className="text-sm font-medium">{STATUS_LABEL[status]}</span>
-        <span className="text-xs text-faint">{issues.length}</span>
+        <span className="rounded bg-surface px-1.5 text-[11px] font-medium text-faint">
+          {issues.length}
+        </span>
         <button
           onClick={() => onAdd(status)}
           className="ml-auto rounded p-0.5 text-faint transition-colors hover:bg-surface-hover hover:text-foreground"
