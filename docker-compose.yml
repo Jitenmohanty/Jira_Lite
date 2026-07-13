@@ -19,6 +19,16 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     environment:
@@ -26,12 +36,32 @@ services:
       NODE_ENV: development
       PORT: 4000
       DATABASE_URL: postgres://tracer:tracer@db:5432/tracer
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: local-compose-secret-change-me-please
       CORS_ORIGIN: http://localhost:3000
+      APP_URL: http://localhost:3000
     ports:
       - '4000:4000'
     depends_on:
       db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Background job processor (BullMQ). Shares the backend image.
+  worker:
+    build: ./backend
+    command: npm run worker:start
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://tracer:tracer@db:5432/tracer
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: local-compose-secret-change-me-please
+      APP_URL: http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:

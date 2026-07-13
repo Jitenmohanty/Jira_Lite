@@ -13,6 +13,12 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url().optional(),
   JWT_SECRET: z.string().min(16).default('dev-insecure-secret-change-me-please'),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+
+  // Redis (BullMQ queues + workers).
+  REDIS_URL: z.string().default('redis://localhost:6379'),
+
+  // Public base URL of the frontend, used to build links in emails.
+  APP_URL: z.string().default('http://localhost:3000'),
 });
 
 const parsed = envSchema.safeParse(process.env);

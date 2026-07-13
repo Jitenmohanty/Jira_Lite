@@ -6,6 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "worker": "tsx watch src/workers/index.ts",
+    "worker:start": "node dist/workers/index.js",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "lint": "eslint . --ext .ts",
@@ -18,12 +20,14 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "bullmq": "^5.80.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
+    "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
     "pg": "^8.22.0",
