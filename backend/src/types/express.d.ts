@@ -6,6 +6,7 @@ export interface AuthUser {
   email: string;
   name: string;
   avatarUrl: string | null;
+  emailVerified: boolean;
 }
 
 /** The caller's membership in the resolved org, attached by `requireRole`. */

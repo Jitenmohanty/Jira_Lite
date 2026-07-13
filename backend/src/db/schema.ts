@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -39,8 +40,33 @@ export const users = pgTable('users', {
   name: varchar('name', { length: 120 }).notNull(),
   passwordHash: text('password_hash').notNull(),
   avatarUrl: text('avatar_url'),
+  emailVerified: boolean('email_verified').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Short-lived, single-use tokens for email verification and password reset. */
+export const tokenTypeEnum = pgEnum('token_type', ['email_verify', 'password_reset']);
+
+export const authTokens = pgTable(
+  'auth_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: tokenTypeEnum('type').notNull(),
+    // We store only a SHA-256 hash of the token; the raw value lives only in
+    // the emailed link.
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('auth_tokens_user_id_idx').on(t.userId),
+    index('auth_tokens_hash_idx').on(t.tokenHash),
+  ],
+);
 
 export const organizations = pgTable('organizations', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -234,6 +260,7 @@ export type Issue = typeof issues.$inferSelect;
 export type NewIssue = typeof issues.$inferInsert;
 export type Comment = typeof comments.$inferSelect;
 export type Activity = typeof activity.$inferSelect;
+export type AuthToken = typeof authTokens.$inferSelect;
 
 export type Role = (typeof roleEnum.enumValues)[number];
 export type IssueStatus = (typeof issueStatusEnum.enumValues)[number];

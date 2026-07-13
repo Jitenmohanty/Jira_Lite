@@ -23,7 +23,7 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
 
   const user = await db.query.users.findFirst({
     where: eq(users.id, userId),
-    columns: { id: true, email: true, name: true, avatarUrl: true },
+    columns: { id: true, email: true, name: true, avatarUrl: true, emailVerified: true },
   });
   if (!user) throw unauthorized('Session user no longer exists');
 
