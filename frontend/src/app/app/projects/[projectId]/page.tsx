@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CircleDashed } from 'lucide-react';
 import { useActiveOrg } from '@/hooks/use-active-org';
 import { useProject } from '@/hooks/use-projects';
@@ -10,6 +10,7 @@ import { Board } from '@/components/board/board';
 import { ListView } from '@/components/issues/list-view';
 import { IssueToolbar } from '@/components/issues/issue-toolbar';
 import { CreateIssueDialog } from '@/components/issues/create-issue-dialog';
+import { IssueDetailPanel } from '@/components/issues/issue-detail-panel';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,26 @@ export default function ProjectPage({ params }: { params: { projectId: string } 
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
 
   const hasFilters = Boolean(filters.status || filters.priority || filters.assignee);
+
+  // Keyboard shortcut: "C" creates an issue (ignored while typing in a field).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key.toLowerCase() === 'c' && !selectedIssueId) {
+        e.preventDefault();
+        openCreateIssue();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [openCreateIssue, selectedIssueId]);
 
   return (
     <div className="flex h-full flex-col">
@@ -73,8 +94,13 @@ export default function ProjectPage({ params }: { params: { projectId: string } 
 
       <CreateIssueDialog projectId={projectId} />
 
-      {/* Issue detail panel is wired up in Stage 6. */}
-      {selectedIssueId ? null : null}
+      {selectedIssueId && (
+        <IssueDetailPanel
+          issueId={selectedIssueId}
+          projectId={projectId}
+          onClose={() => setSelectedIssueId(null)}
+        />
+      )}
     </div>
   );
 }
