@@ -1,8 +1,10 @@
 import express, { type Express } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import { env } from './config/env';
+import morgan from 'morgan';
+import { env, isProd } from './config/env';
 import { requireAuth } from './middleware/require-auth';
+import { authLimiter } from './middleware/rate-limit';
 import { authRouter } from './modules/auth/auth.routes';
 import { orgsRouter } from './modules/orgs/orgs.routes';
 import { projectsRouter } from './modules/projects/projects.routes';
@@ -18,6 +20,11 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler';
 export function createApp(): Express {
   const app = express();
 
+  // Request logging (concise in dev, Apache-combined in prod).
+  app.use(morgan(isProd ? 'combined' : 'dev'));
+
+  // CORS locked to the configured frontend origin; credentials enabled so the
+  // HTTP-only auth cookie is accepted.
   app.use(
     cors({
       origin: env.CORS_ORIGIN,
@@ -32,7 +39,8 @@ export function createApp(): Express {
   });
 
   // Feature routers. All except /auth require authentication.
-  app.use('/auth', authRouter);
+  // Auth endpoints are rate-limited against brute force.
+  app.use('/auth', authLimiter, authRouter);
   app.use('/orgs', requireAuth, orgsRouter);
   app.use('/orgs/:orgId/projects', requireAuth, projectsRouter);
   app.use('/orgs/:orgId/activity', requireAuth, activityRouter);
