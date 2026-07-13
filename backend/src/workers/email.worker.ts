@@ -1,17 +1,14 @@
 import { Worker } from 'bullmq';
 import { bullConnection } from '../queues/connection';
 import { QUEUE, type EmailJobData } from '../queues/queues';
+import { sendEmail } from '../modules/email/email.service';
 
-/**
- * Processes queued emails. Phase 1 logs the intent; Phase 2 renders the
- * template and sends via the email service.
- */
+/** Renders and sends queued emails via the email service. */
 export function startEmailWorker(): Worker<EmailJobData> {
   const worker = new Worker<EmailJobData>(
     QUEUE.email,
     async (job) => {
-      console.log(`[email] sending "${job.data.template}" → ${job.data.to}`);
-      // Phase 2 replaces this with: await sendEmail(job.data)
+      await sendEmail(job.data);
     },
     { connection: bullConnection, concurrency: 5 },
   );

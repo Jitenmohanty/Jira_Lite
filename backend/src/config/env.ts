@@ -19,6 +19,15 @@ const envSchema = z.object({
 
   // Public base URL of the frontend, used to build links in emails.
   APP_URL: z.string().default('http://localhost:3000'),
+
+  // SMTP (transactional email). If unset in development, a throwaway Ethereal
+  // test inbox is created automatically and a preview URL is logged.
+  // For Gmail: host smtp.gmail.com, port 465, user = address, pass = app password.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  EMAIL_FROM: z.string().default('Tracer <no-reply@tracer.dev>'),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -3,6 +3,7 @@ import { db } from '../../db/client';
 import { users, type User } from '../../db/schema';
 import { hashPassword, verifyPassword } from '../../lib/password';
 import { conflict, unauthorized } from '../../lib/http-errors';
+import { enqueueEmail } from '../../queues/queues';
 import type { LoginInput, SignupInput } from './auth.schemas';
 
 /** User fields safe to return to clients (never the password hash). */
@@ -32,6 +33,10 @@ export async function signup(input: SignupInput): Promise<PublicUser> {
     .returning();
 
   if (!user) throw new Error('Failed to create user');
+
+  // Fire-and-forget onboarding email via the queue (never blocks signup).
+  await enqueueEmail({ template: 'welcome', to: user.email, data: { name: user.name } });
+
   return toPublicUser(user);
 }
 
