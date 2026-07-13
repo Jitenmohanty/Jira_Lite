@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
+import { AppProviders } from '@/providers/app-providers';
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -28,7 +29,9 @@ export default function RootLayout({
   // client-side theme read from flagging a mismatch.
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }
