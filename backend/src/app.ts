@@ -8,6 +8,7 @@ import { orgsRouter } from './modules/orgs/orgs.routes';
 import { projectsRouter } from './modules/projects/projects.routes';
 import { issuesRouter, projectIssuesRouter } from './modules/issues/issues.routes';
 import { commentsRouter } from './modules/comments/comments.routes';
+import { activityRouter } from './modules/activity/activity.routes';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 
 /**
@@ -34,6 +35,7 @@ export function createApp(): Express {
   app.use('/auth', authRouter);
   app.use('/orgs', requireAuth, orgsRouter);
   app.use('/orgs/:orgId/projects', requireAuth, projectsRouter);
+  app.use('/orgs/:orgId/activity', requireAuth, activityRouter);
   app.use('/projects/:projectId/issues', requireAuth, projectIssuesRouter);
   app.use('/issues', requireAuth, issuesRouter);
   app.use('/issues/:issueId/comments', requireAuth, commentsRouter);
