@@ -2,6 +2,8 @@ import express, { type Express } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { env } from './config/env';
+import { authRouter } from './modules/auth/auth.routes';
+import { errorHandler, notFoundHandler } from './middleware/error-handler';
 
 /**
  * Builds the Express application. Kept separate from the server bootstrap so
@@ -22,6 +24,13 @@ export function createApp(): Express {
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
+
+  // Feature routers
+  app.use('/auth', authRouter);
+
+  // 404 + centralized error handling (must be last).
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   return app;
 }
