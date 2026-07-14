@@ -31,16 +31,26 @@ optimistic UI, and clean full-stack architecture.
 - Per-project sequential issue identifiers (e.g. `TRC-14`) that stay **correct under concurrent
   inserts**.
 - **Activity feed** of every mutation, grouped by day.
+- **Command palette** (`⌘/Ctrl+K`) for fast navigation and actions.
+- **Notifications** — in-app bell (unread badge) **and** email when you're assigned an issue.
+- **Auth**: email/password **and Google OAuth2**, email verification, and password reset — all
+  with secure, hashed, expiring tokens and a JWT stored in an HTTP-only cookie.
+- **Background jobs** on **BullMQ + Redis** (transactional email, notifications) and
+  **scheduled cron jobs** (daily activity digest, expired-token cleanup).
+- **Hardened**: Helmet headers, Redis-backed rate limiting on auth, structured logging (pino).
 - Dark-mode-first design with a light theme, responsive down to mobile.
 
 ## Stack
 
-| Layer     | Technology                                                                     |
-| --------- | ------------------------------------------------------------------------------ |
-| Frontend  | Next.js 14 (App Router), TypeScript, Tailwind CSS, Zustand, TanStack Query, RHF + Zod, dnd-kit |
-| Backend   | Node.js, Express 5, TypeScript, Zod, JWT (HTTP-only cookie), bcrypt             |
-| Database  | PostgreSQL via **Drizzle ORM** + migrations                                    |
-| Infra     | Docker Compose (Postgres + both apps)                                          |
+| Layer      | Technology                                                                     |
+| ---------- | ------------------------------------------------------------------------------ |
+| Frontend   | Next.js 14 (App Router), TypeScript, Tailwind CSS, Zustand, TanStack Query, RHF + Zod, dnd-kit |
+| Backend    | Node.js, Express 5, TypeScript, Zod                                            |
+| Auth       | JWT (HTTP-only cookie) + Google OAuth2, bcrypt, tokenized email verify / reset |
+| Data       | PostgreSQL via **Drizzle ORM** + migrations                                    |
+| Async      | **Redis + BullMQ** queues & workers, repeatable (cron) jobs, Nodemailer email  |
+| Hardening  | Helmet, Redis-backed rate limiting, pino structured logging                    |
+| Infra      | Docker Compose (Postgres + Redis + API + worker + web)                         |
 
 ## Repository layout
 
@@ -63,6 +73,7 @@ One command brings up Postgres, the API, and the web app:
 ```bash
 docker compose up --build
 # web → http://localhost:3000 · api → http://localhost:4000
+# brings up Postgres, Redis, the API, the queue worker, and the web app.
 # load demo data (once containers are up):
 docker compose exec backend npm run db:seed
 ```
@@ -73,38 +84,52 @@ docker compose exec backend npm run db:seed
 ## Manual dev setup
 
 ```bash
-# Postgres (or use your own and set DATABASE_URL)
+# Postgres + Redis (or bring your own and set DATABASE_URL / REDIS_URL)
 docker run -d --name tracer-postgres -e POSTGRES_USER=tracer -e POSTGRES_PASSWORD=tracer \
   -e POSTGRES_DB=tracer -p 5432:5432 postgres:16-alpine
+docker run -d --name tracer-redis -p 6379:6379 redis:7-alpine
 
-# Backend
+# Backend API + queue worker (two terminals)
 cd backend && cp .env.example .env && npm install
 npm run db:migrate && npm run db:seed
-npm run dev            # http://localhost:4000  (GET /health -> {"status":"ok"})
+npm run dev            # API  → http://localhost:4000  (GET /health -> {"status":"ok"})
+npm run worker         # queue worker (email, notifications, cron)
 
 # Frontend (new terminal)
 cd frontend && cp .env.example .env.local && npm install
 npm run dev            # http://localhost:3000
 ```
 
+> **Email in dev:** without SMTP configured, messages are rendered and logged (no delivery) so
+> the queue → worker → template pipeline works offline. Set `SMTP_*` (e.g. a Gmail app password)
+> for real delivery. **Google sign-in** is optional — set `GOOGLE_CLIENT_ID/SECRET` to enable it.
+
 ## Architecture
 
 - **Two independent apps, HTTP only.** No shared code crosses the boundary; the frontend holds
   hand-maintained TypeScript types mirroring the API responses.
-- **Auth**: `POST /auth/login` sets a JWT in an **HTTP-only cookie** (XSS-resistant). The
-  frontend never sees the token — every request is sent with `credentials: 'include'`, and CORS
-  is locked to the frontend origin.
+- **Auth**: `POST /auth/login` sets a JWT in an **HTTP-only cookie** (XSS-resistant); the
+  frontend never sees the token and sends every request with `credentials: 'include'`.
+  **Google OAuth2** (authorization-code flow with a signed state cookie for CSRF) links accounts
+  by email. **Email verification** and **password reset** use single-use, SHA-256-hashed,
+  expiring tokens delivered by email.
 - **RBAC** lives in the `memberships` table and is enforced by a `requireRole(minRole)`
   middleware that resolves the target org (directly, or via a project/issue) and checks the
   `owner > admin > member` hierarchy. The UI hides actions a role can't perform, but the backend
   is the source of truth.
+- **Background processing**: an API request never blocks on slow work. Emails and notifications
+  are enqueued to **BullMQ (Redis)** and handled by a separate **worker** process; **repeatable
+  jobs** run the daily activity digest and token cleanup. Nodemailer sends via SMTP (Gmail-ready)
+  or a dev preview transport.
 - **Backend structure**: feature modules (`auth`, `orgs`, `projects`, `issues`, `comments`,
-  `activity`), each with `schemas` (Zod) / `service` / `routes`; a central error handler returns
-  a consistent `{ error: { code, message, details? } }` envelope.
+  `activity`, `notifications`), each with `schemas` (Zod) / `service` / `routes`; queues and
+  workers under `queues/` and `workers/`; a central error handler returns a consistent
+  `{ error: { code, message, details? } }` envelope.
 - **Frontend state**: **TanStack Query** owns server state (caching, optimistic mutations);
-  **Zustand** owns UI state (active org, board/list view, drawer). Forms use React Hook Form +
-  Zod.
-- Auth endpoints are **rate-limited**; requests are logged with morgan.
+  **Zustand** owns UI state (active org, board/list view, drawer, command palette). Forms use
+  React Hook Form + Zod.
+- **Hardening**: Helmet secure headers, **Redis-backed** rate limiting on auth (shared across
+  instances), and **pino** structured request logging.
 
 ## Domain model
 
@@ -237,21 +262,30 @@ in production (HTTPS).
 separate `package.json`s and no shared imports — so either could be deployed or replaced
 independently.
 
+**Why a queue (BullMQ + Redis).** Sending email or fanning out notifications inside a request
+adds latency and a failure mode to the user's action. Enqueuing the work keeps requests fast and
+gives retries with backoff for free; a separate worker process scales independently of the API.
+The same infrastructure powers **cron** via BullMQ repeatable jobs — one system, not two.
+
 ## Testing
 
 ```bash
-cd backend && npm test    # vitest integration tests against Postgres
+cd backend && npm test    # vitest integration tests (Postgres + Redis)
 ```
 
-Integration tests cover the issue lifecycle and, notably, the `issue_number` concurrency case.
+Integration tests cover the issue lifecycle (incl. the `issue_number` concurrency case) and the
+email-verification / password-reset flows.
 
 ## API overview
 
-| Area     | Endpoints                                                                       |
-| -------- | ------------------------------------------------------------------------------- |
-| Auth     | `POST /auth/signup` · `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` |
-| Orgs     | `GET/POST /orgs` · `GET/POST /orgs/:id/members` · `PATCH /orgs/:id/members/:userId` |
-| Projects | `GET/POST /orgs/:id/projects` · `GET/PATCH/DELETE /orgs/:id/projects/:projectId` |
-| Issues   | `GET/POST /projects/:id/issues` · `GET/PATCH/DELETE /issues/:issueId`            |
-| Comments | `GET/POST /issues/:issueId/comments`                                             |
-| Activity | `GET /orgs/:id/activity`                                                         |
+| Area          | Endpoints                                                                       |
+| ------------- | ------------------------------------------------------------------------------- |
+| Auth          | `POST /auth/signup` · `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` |
+| Auth (verify) | `POST /auth/verify-email` · `POST /auth/forgot-password` · `POST /auth/reset-password` |
+| OAuth         | `GET /auth/config` · `GET /auth/google` · `GET /auth/google/callback`           |
+| Orgs          | `GET/POST /orgs` · `GET/POST /orgs/:id/members` · `PATCH /orgs/:id/members/:userId` |
+| Projects      | `GET/POST /orgs/:id/projects` · `GET/PATCH/DELETE /orgs/:id/projects/:projectId` |
+| Issues        | `GET/POST /projects/:id/issues` · `GET/PATCH/DELETE /issues/:issueId`            |
+| Comments      | `GET/POST /issues/:issueId/comments`                                             |
+| Activity      | `GET /orgs/:id/activity`                                                         |
+| Notifications | `GET /notifications` · `POST /notifications/read-all` · `PATCH /notifications/:id/read` |
