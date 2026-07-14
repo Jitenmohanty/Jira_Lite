@@ -1,5 +1,7 @@
 # Tracer
 
+[![CI](https://github.com/Jitenmohanty/Jira_Lite/actions/workflows/ci.yml/badge.svg)](https://github.com/Jitenmohanty/Jira_Lite/actions/workflows/ci.yml)
+
 **Tracer** is a multi-tenant issue tracker in the spirit of Linear / Jira: organizations,
 projects, and issues on a drag-and-drop Kanban board, with role-based access control and an
 activity feed. It's a portfolio project demonstrating relational data modeling, RBAC,
