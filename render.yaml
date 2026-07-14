@@ -1,0 +1,98 @@
+# Render Blueprint — deploys the API, the background worker, Postgres, and
+# Redis (Render calls it "Key Value"). Import via Render → New → Blueprint.
+# The frontend deploys separately on Vercel (see DEPLOYMENT.md).
+#
+# After the first deploy, set the "sync: false" vars in the Render dashboard
+# (your Vercel URL, and optionally Google/SMTP creds), then redeploy.
+
+databases:
+  - name: tracer-db
+    databaseName: tracer
+    user: tracer
+    plan: free
+
+services:
+  # Redis / Key Value — backs BullMQ queues and rate limiting.
+  - type: redis
+    name: tracer-redis
+    plan: free
+    ipAllowList: [] # internal connections only
+    maxmemoryPolicy: noeviction
+
+  # API (Express) — self-migrates on boot, then serves.
+  - type: web
+    name: tracer-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tracer-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: tracer-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false # e.g. https://tracer.vercel.app
+      - key: APP_URL
+        sync: false # e.g. https://tracer.vercel.app
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false # https://<api>.onrender.com/auth/google/callback
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+  # Background worker (BullMQ) — email, notifications, scheduled jobs.
+  - type: worker
+    name: tracer-worker
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: npm run worker:start
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tracer-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: tracer-redis
+          property: connectionString
+      - key: APP_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

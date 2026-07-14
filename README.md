@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/Jitenmohanty/Jira_Lite/actions/workflows/ci.yml/badge.svg)](https://github.com/Jitenmohanty/Jira_Lite/actions/workflows/ci.yml)
 
+**Live demo:** _add your deployed URL here_ · **Deploy your own:** see [DEPLOYMENT.md](./DEPLOYMENT.md) (Render + Vercel).
+
 **Tracer** is a multi-tenant issue tracker in the spirit of Linear / Jira: organizations,
 projects, and issues on a drag-and-drop Kanban board, with role-based access control and an
 activity feed. It's a portfolio project demonstrating relational data modeling, RBAC,

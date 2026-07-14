@@ -5,7 +5,8 @@ import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 import swaggerUi from 'swagger-ui-express';
 import { openapiSpec } from './docs/openapi';
-import { env } from './config/env';
+import { env, isProd } from './config/env';
+import { pool } from './db/client';
 import { logger } from './lib/logger';
 import { requireAuth } from './middleware/require-auth';
 import { authLimiter } from './middleware/rate-limit';
@@ -25,6 +26,11 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler';
  */
 export function createApp(): Express {
   const app = express();
+
+  // Behind a platform proxy (Render/Fly/etc.) in production: trust the first
+  // proxy so `Secure` cookies are honored and rate limiting keys off the real
+  // client IP (X-Forwarded-For) rather than the proxy.
+  if (isProd) app.set('trust proxy', 1);
 
   // Secure headers. CSP is irrelevant for a JSON API and CORP is relaxed so the
   // cross-origin SPA can read responses (CORS handles the actual policy).
@@ -49,8 +55,19 @@ export function createApp(): Express {
   app.use(express.json());
   app.use(cookieParser());
 
+  // Liveness: process is up.
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
+  });
+
+  // Readiness: dependencies reachable (used by platform health checks).
+  app.get('/ready', async (_req, res) => {
+    try {
+      await pool.query('SELECT 1');
+      res.json({ status: 'ready' });
+    } catch {
+      res.status(503).json({ status: 'not-ready' });
+    }
   });
 
   // API documentation (public): raw spec + Swagger UI.

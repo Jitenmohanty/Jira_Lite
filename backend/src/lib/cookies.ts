@@ -7,12 +7,14 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * HTTP-only cookie so the token is never exposed to JS (XSS-resistant).
- * `sameSite: 'lax'` is fine because the SPA is same-site in dev; `secure` is
- * enabled in production (HTTPS).
+ * In production the frontend and API may live on different domains, so we need
+ * `SameSite=None; Secure` for the cookie to travel on cross-site requests
+ * (CSRF risk is covered by the double-submit token). Locally over http we keep
+ * `Lax` (same-site) since `None` requires `Secure`/HTTPS.
  */
 const baseOptions: CookieOptions = {
   httpOnly: true,
-  sameSite: 'lax',
+  sameSite: isProd ? 'none' : 'lax',
   secure: isProd,
   path: '/',
 };

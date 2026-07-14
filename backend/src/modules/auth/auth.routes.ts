@@ -42,7 +42,9 @@ authRouter.post('/signup', async (req, res) => {
   const input = signupSchema.parse(req.body);
   const user = await signup(input);
   setAuthCookie(res, signToken(user.id));
-  issueCsrfToken(res);
+  // Preserve an existing token (the client may already hold it) to avoid
+  // invalidating its cached copy.
+  issueCsrfToken(res, req.cookies?.[CSRF_COOKIE]);
   res.status(201).json({ user });
 });
 
@@ -51,7 +53,7 @@ authRouter.post('/login', async (req, res) => {
   const input = loginSchema.parse(req.body);
   const user = await login(input);
   setAuthCookie(res, signToken(user.id));
-  issueCsrfToken(res);
+  issueCsrfToken(res, req.cookies?.[CSRF_COOKIE]);
   res.json({ user });
 });
 
@@ -131,7 +133,7 @@ authRouter.get('/google/callback', async (req, res) => {
     const profile = await exchangeGoogleCode(code);
     const user = await upsertGoogleUser(profile);
     setAuthCookie(res, signToken(user.id));
-    issueCsrfToken(res);
+    issueCsrfToken(res, req.cookies?.[CSRF_COOKIE]);
     res.redirect(`${env.APP_URL}/app`);
   } catch {
     res.redirect(`${env.APP_URL}/login?error=oauth`);

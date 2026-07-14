@@ -15,8 +15,8 @@ const CSRF_HEADER = 'x-csrf-token';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 const cookieOptions: CookieOptions = {
-  httpOnly: false, // must be readable by the client to echo it back
-  sameSite: 'lax',
+  httpOnly: false, // the value is also returned by GET /auth/csrf for cross-domain use
+  sameSite: isProd ? 'none' : 'lax',
   secure: isProd,
   path: '/',
 };
