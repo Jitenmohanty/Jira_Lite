@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMe } from '@/hooks/use-auth';
+import { useRealtime } from '@/hooks/use-realtime';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 import { CommandPalette } from '@/components/command-palette';
@@ -12,6 +13,9 @@ import { Spinner } from '@/components/ui/spinner';
 export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { data: user, isLoading } = useMe();
+
+  // Subscribe to live updates once authenticated (no-op otherwise).
+  useRealtime(!!user);
 
   useEffect(() => {
     if (!isLoading && user === null) router.replace('/login');

@@ -1,9 +1,15 @@
+import { createServer } from 'node:http';
 import { createApp } from './app';
 import { env } from './config/env';
+import { setupRealtime } from './realtime/io';
 
 const app = createApp();
+const server = createServer(app);
 
-const server = app.listen(env.PORT, () => {
+// Attach the realtime (Socket.IO) layer to the same HTTP server.
+setupRealtime(server);
+
+server.listen(env.PORT, () => {
   console.log(`🚀 Tracer API listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
 });
 

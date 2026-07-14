@@ -4,6 +4,7 @@ import { issues, memberships, projects } from '../../db/schema';
 import { badRequest, notFound } from '../../lib/http-errors';
 import { recordActivity } from '../../lib/activity';
 import type { Executor } from '../../lib/activity';
+import { emitIssueChanged } from '../../realtime/emit';
 import { notifyIssueAssigned } from '../notifications/notifications.service';
 import type { CreateIssueInput, ListIssuesQuery, UpdateIssueInput } from './issues.schemas';
 
@@ -32,6 +33,7 @@ const identifier = (key: string, num: number) => `${key}-${num}`;
  * (project_id, issue_number) is the final backstop.
  */
 export async function createIssue(actorId: string, projectId: string, input: CreateIssueInput) {
+  let orgId = '';
   const created = await db.transaction(async (tx) => {
     const [proj] = await tx
       .update(projects)
@@ -39,6 +41,7 @@ export async function createIssue(actorId: string, projectId: string, input: Cre
       .where(eq(projects.id, projectId))
       .returning({ issueCounter: projects.issueCounter, orgId: projects.orgId, key: projects.key });
     if (!proj) throw notFound('Project not found');
+    orgId = proj.orgId;
 
     if (input.assigneeId) await assertMember(tx, proj.orgId, input.assigneeId);
 
@@ -68,6 +71,9 @@ export async function createIssue(actorId: string, projectId: string, input: Cre
 
     return { ...issue, identifier: identifier(proj.key, issue.issueNumber) };
   });
+
+  // Broadcast to org members viewing the board.
+  emitIssueChanged(orgId, projectId, created.id);
 
   // Notify the assignee (in-app + email) after the transaction commits.
   if (created.assigneeId) {
@@ -164,6 +170,8 @@ export async function updateIssue(actorId: string, issueId: string, input: Updat
     return { ...issue, identifier: identifier(current.project.key, issue.issueNumber) };
   });
 
+  emitIssueChanged(current.project.orgId, current.projectId, updated.id);
+
   // Notify on a genuine reassignment to a different person.
   if (updated.assigneeId && updated.assigneeId !== current.assigneeId) {
     await notifyIssueAssigned({
@@ -196,4 +204,6 @@ export async function deleteIssue(actorId: string, issueId: string) {
       metadata: { identifier: identifier(current.project.key, current.issueNumber), title: current.title },
     });
   });
+
+  emitIssueChanged(current.project.orgId, current.projectId, issueId);
 }

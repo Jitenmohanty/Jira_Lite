@@ -3,6 +3,7 @@ import { db } from '../../db/client';
 import { notifications, users } from '../../db/schema';
 import { env } from '../../config/env';
 import { enqueueEmail } from '../../queues/queues';
+import { emitNotification } from '../../realtime/emit';
 
 interface CreateNotificationInput {
   userId: string;
@@ -25,6 +26,7 @@ export async function createNotification(input: CreateNotificationInput) {
       entityId: input.entityId ?? null,
     })
     .returning();
+  emitNotification(input.userId);
   return n;
 }
 
