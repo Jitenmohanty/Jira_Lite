@@ -3,6 +3,8 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
+import swaggerUi from 'swagger-ui-express';
+import { openapiSpec } from './docs/openapi';
 import { env } from './config/env';
 import { logger } from './lib/logger';
 import { requireAuth } from './middleware/require-auth';
@@ -49,6 +51,10 @@ export function createApp(): Express {
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
+
+  // API documentation (public): raw spec + Swagger UI.
+  app.get('/openapi.json', (_req, res) => res.json(openapiSpec));
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec, { customSiteTitle: 'Tracer API' }));
 
   // Feature routers. All except /auth require authentication.
   // Auth endpoints are rate-limited against brute force.

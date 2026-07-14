@@ -285,6 +285,9 @@ Postgres + Redis service containers on every push.
 
 ## API overview
 
+Interactive docs (Swagger UI) at **`/docs`**; the raw OpenAPI spec at **`/openapi.json`**.
+
+
 | Area          | Endpoints                                                                       |
 | ------------- | ------------------------------------------------------------------------------- |
 | Auth          | `POST /auth/signup` · `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` |
