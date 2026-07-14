@@ -9,6 +9,7 @@ import { useProjects } from '@/hooks/use-projects';
 import { useUIStore } from '@/stores/ui-store';
 import { Avatar } from '@/components/ui/avatar';
 import { ThemeToggle } from './theme-toggle';
+import { NotificationBell } from './notification-bell';
 import type { User } from '@/lib/types';
 
 export function Topbar({ user }: { user: User }) {
@@ -61,6 +62,7 @@ export function Topbar({ user }: { user: User }) {
           <span>Search</span>
           <kbd className="rounded border border-border-subtle px-1 text-[10px]">⌘K</kbd>
         </button>
+        <NotificationBell />
         <ThemeToggle />
         <div className="relative">
         <button

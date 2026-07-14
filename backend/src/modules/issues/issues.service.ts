@@ -4,6 +4,7 @@ import { issues, memberships, projects } from '../../db/schema';
 import { badRequest, notFound } from '../../lib/http-errors';
 import { recordActivity } from '../../lib/activity';
 import type { Executor } from '../../lib/activity';
+import { notifyIssueAssigned } from '../notifications/notifications.service';
 import type { CreateIssueInput, ListIssuesQuery, UpdateIssueInput } from './issues.schemas';
 
 /** Verify a user is a member of the org (used to validate assignees). */
@@ -31,7 +32,7 @@ const identifier = (key: string, num: number) => `${key}-${num}`;
  * (project_id, issue_number) is the final backstop.
  */
 export async function createIssue(actorId: string, projectId: string, input: CreateIssueInput) {
-  return db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const [proj] = await tx
       .update(projects)
       .set({ issueCounter: sql`${projects.issueCounter} + 1` })
@@ -67,6 +68,19 @@ export async function createIssue(actorId: string, projectId: string, input: Cre
 
     return { ...issue, identifier: identifier(proj.key, issue.issueNumber) };
   });
+
+  // Notify the assignee (in-app + email) after the transaction commits.
+  if (created.assigneeId) {
+    await notifyIssueAssigned({
+      assigneeId: created.assigneeId,
+      actorId,
+      issueId: created.id,
+      projectId,
+      identifier: created.identifier,
+      title: created.title,
+    });
+  }
+  return created;
 }
 
 export async function listIssues(projectId: string, q: ListIssuesQuery) {
@@ -124,7 +138,7 @@ export async function updateIssue(actorId: string, issueId: string, input: Updat
 
   if (input.assigneeId) await assertMember(db, current.project.orgId, input.assigneeId);
 
-  return db.transaction(async (tx) => {
+  const updated = await db.transaction(async (tx) => {
     const [issue] = await tx
       .update(issues)
       .set({ ...input, updatedAt: new Date() })
@@ -149,6 +163,19 @@ export async function updateIssue(actorId: string, issueId: string, input: Updat
 
     return { ...issue, identifier: identifier(current.project.key, issue.issueNumber) };
   });
+
+  // Notify on a genuine reassignment to a different person.
+  if (updated.assigneeId && updated.assigneeId !== current.assigneeId) {
+    await notifyIssueAssigned({
+      assigneeId: updated.assigneeId,
+      actorId,
+      issueId: updated.id,
+      projectId: current.projectId,
+      identifier: updated.identifier,
+      title: updated.title,
+    });
+  }
+  return updated;
 }
 
 export async function deleteIssue(actorId: string, issueId: string) {

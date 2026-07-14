@@ -11,6 +11,7 @@ import { projectsRouter } from './modules/projects/projects.routes';
 import { issuesRouter, projectIssuesRouter } from './modules/issues/issues.routes';
 import { commentsRouter } from './modules/comments/comments.routes';
 import { activityRouter } from './modules/activity/activity.routes';
+import { notificationsRouter } from './modules/notifications/notifications.routes';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 
 /**
@@ -47,6 +48,7 @@ export function createApp(): Express {
   app.use('/projects/:projectId/issues', requireAuth, projectIssuesRouter);
   app.use('/issues', requireAuth, issuesRouter);
   app.use('/issues/:issueId/comments', requireAuth, commentsRouter);
+  app.use('/notifications', requireAuth, notificationsRouter);
 
   // 404 + centralized error handling (must be last).
   app.use(notFoundHandler);

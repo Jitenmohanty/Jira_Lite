@@ -191,6 +191,25 @@ export const activity = pgTable(
   (t) => [index('activity_org_id_idx').on(t.orgId)],
 );
 
+/** Per-user in-app notifications (e.g. issue assignment). `readAt` null = unread. */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: varchar('type', { length: 40 }).notNull(),
+    title: varchar('title', { length: 300 }).notNull(),
+    body: text('body'),
+    entityType: varchar('entity_type', { length: 40 }),
+    entityId: uuid('entity_id'),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('notifications_user_id_idx').on(t.userId)],
+);
+
 /* --------------------------------------------------------------- relations */
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -262,6 +281,7 @@ export type NewIssue = typeof issues.$inferInsert;
 export type Comment = typeof comments.$inferSelect;
 export type Activity = typeof activity.$inferSelect;
 export type AuthToken = typeof authTokens.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
 
 export type Role = (typeof roleEnum.enumValues)[number];
 export type IssueStatus = (typeof issueStatusEnum.enumValues)[number];
