@@ -9,6 +9,7 @@ import { env } from './config/env';
 import { logger } from './lib/logger';
 import { requireAuth } from './middleware/require-auth';
 import { authLimiter } from './middleware/rate-limit';
+import { csrfProtection } from './lib/csrf';
 import { authRouter } from './modules/auth/auth.routes';
 import { orgsRouter } from './modules/orgs/orgs.routes';
 import { projectsRouter } from './modules/projects/projects.routes';
@@ -56,16 +57,16 @@ export function createApp(): Express {
   app.get('/openapi.json', (_req, res) => res.json(openapiSpec));
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec, { customSiteTitle: 'Tracer API' }));
 
-  // Feature routers. All except /auth require authentication.
+  // Feature routers. All except /auth require authentication + CSRF on mutations.
   // Auth endpoints are rate-limited against brute force.
   app.use('/auth', authLimiter, authRouter);
-  app.use('/orgs', requireAuth, orgsRouter);
-  app.use('/orgs/:orgId/projects', requireAuth, projectsRouter);
-  app.use('/orgs/:orgId/activity', requireAuth, activityRouter);
-  app.use('/projects/:projectId/issues', requireAuth, projectIssuesRouter);
-  app.use('/issues', requireAuth, issuesRouter);
-  app.use('/issues/:issueId/comments', requireAuth, commentsRouter);
-  app.use('/notifications', requireAuth, notificationsRouter);
+  app.use('/orgs', requireAuth, csrfProtection, orgsRouter);
+  app.use('/orgs/:orgId/projects', requireAuth, csrfProtection, projectsRouter);
+  app.use('/orgs/:orgId/activity', requireAuth, csrfProtection, activityRouter);
+  app.use('/projects/:projectId/issues', requireAuth, csrfProtection, projectIssuesRouter);
+  app.use('/issues', requireAuth, csrfProtection, issuesRouter);
+  app.use('/issues/:issueId/comments', requireAuth, csrfProtection, commentsRouter);
+  app.use('/notifications', requireAuth, csrfProtection, notificationsRouter);
 
   // 404 + centralized error handling (must be last).
   app.use(notFoundHandler);

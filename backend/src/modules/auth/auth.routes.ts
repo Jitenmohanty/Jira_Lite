@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/require-auth';
 import { setAuthCookie, clearAuthCookie } from '../../lib/cookies';
+import { CSRF_COOKIE, issueCsrfToken } from '../../lib/csrf';
 import { signToken } from '../../lib/jwt';
 import { unauthorized } from '../../lib/http-errors';
 import { env, isProd } from '../../config/env';
@@ -30,11 +31,18 @@ export const authRouter = Router();
 
 const OAUTH_STATE_COOKIE = 'oauth_state';
 
+// GET /auth/csrf — issue/refresh the double-submit CSRF token cookie.
+authRouter.get('/csrf', (req, res) => {
+  const token = issueCsrfToken(res, req.cookies?.[CSRF_COOKIE]);
+  res.json({ csrfToken: token });
+});
+
 // POST /auth/signup — create an account, start a session.
 authRouter.post('/signup', async (req, res) => {
   const input = signupSchema.parse(req.body);
   const user = await signup(input);
   setAuthCookie(res, signToken(user.id));
+  issueCsrfToken(res);
   res.status(201).json({ user });
 });
 
@@ -43,6 +51,7 @@ authRouter.post('/login', async (req, res) => {
   const input = loginSchema.parse(req.body);
   const user = await login(input);
   setAuthCookie(res, signToken(user.id));
+  issueCsrfToken(res);
   res.json({ user });
 });
 
@@ -122,6 +131,7 @@ authRouter.get('/google/callback', async (req, res) => {
     const profile = await exchangeGoogleCode(code);
     const user = await upsertGoogleUser(profile);
     setAuthCookie(res, signToken(user.id));
+    issueCsrfToken(res);
     res.redirect(`${env.APP_URL}/app`);
   } catch {
     res.redirect(`${env.APP_URL}/login?error=oauth`);

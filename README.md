@@ -131,7 +131,8 @@ npm run dev            # http://localhost:3000
   **Zustand** owns UI state (active org, board/list view, drawer, command palette). Forms use
   React Hook Form + Zod.
 - **Hardening**: Helmet secure headers, **Redis-backed** rate limiting on auth (shared across
-  instances), and **pino** structured request logging.
+  instances), **double-submit CSRF** protection on mutating requests (layered on the cookie's
+  `SameSite=Lax`), and **pino** structured request logging.
 
 ## Domain model
 

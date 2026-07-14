@@ -23,11 +23,35 @@ export class ApiError extends Error {
   }
 }
 
+const CSRF_COOKIE = 'csrf_token';
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function readCookie(name: string): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]!) : undefined;
+}
+
+/** Ensure a CSRF token cookie exists, fetching one if needed. */
+async function ensureCsrfToken(): Promise<string | undefined> {
+  let token = readCookie(CSRF_COOKIE);
+  if (!token) {
+    await fetch(`${BASE_URL}/auth/csrf`, { credentials: 'include' }).catch(() => {});
+    token = readCookie(CSRF_COOKIE);
+  }
+  return token;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method ?? 'GET').toUpperCase();
+  // Double-submit CSRF token on state-changing requests.
+  const csrf = MUTATING.has(method) ? await ensureCsrfToken() : undefined;
+
   const res = await fetch(`${BASE_URL}${path}`, {
     credentials: 'include',
     headers: {
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(csrf ? { 'x-csrf-token': csrf } : {}),
       ...options.headers,
     },
     ...options,
