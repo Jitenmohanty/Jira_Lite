@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, lt } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { authTokens, users } from '../../db/schema';
 import { env } from '../../config/env';
@@ -80,4 +80,13 @@ export async function resetPassword(rawToken: string, newPassword: string): Prom
   const passwordHash = await hashPassword(newPassword);
   // Proving control of the inbox also verifies the email.
   await db.update(users).set({ passwordHash, emailVerified: true }).where(eq(users.id, userId));
+}
+
+/** Delete expired auth tokens. Run on a schedule (see the scheduler worker). */
+export async function cleanupExpiredTokens(): Promise<number> {
+  const deleted = await db
+    .delete(authTokens)
+    .where(lt(authTokens.expiresAt, new Date()))
+    .returning({ id: authTokens.id });
+  return deleted.length;
 }

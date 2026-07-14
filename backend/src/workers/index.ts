@@ -1,12 +1,17 @@
 import type { Worker } from 'bullmq';
 import { env } from '../config/env';
 import { startEmailWorker } from './email.worker';
+import { startSchedulerWorker } from './scheduler.worker';
+import { registerRepeatableJobs } from '../queues/scheduler';
 
 /**
  * Worker process entrypoint (run separately from the API: `npm run worker`).
  * Starts all BullMQ workers and shuts them down cleanly.
  */
-const workers: Worker[] = [startEmailWorker()];
+const workers: Worker[] = [startEmailWorker(), startSchedulerWorker()];
+
+// Register cron/repeatable jobs (idempotent).
+void registerRepeatableJobs();
 
 console.log(`👷 Workers online (${workers.length}) — Redis ${env.REDIS_URL}`);
 
