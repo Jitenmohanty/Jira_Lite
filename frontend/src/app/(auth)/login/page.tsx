@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -11,6 +11,7 @@ import { ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, Label } from '@/components/ui/field';
+import { GoogleAuthButton } from '@/components/auth/google-button';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -28,6 +29,13 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
+  // Surface OAuth failures redirected back from the backend (?error=...).
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get('error');
+    if (error === 'oauth') setFormError('Google sign-in failed. Please try again.');
+    else if (error === 'oauth_unavailable') setFormError('Google sign-in is not configured.');
+  }, []);
+
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
@@ -42,6 +50,8 @@ export default function LoginPage() {
     <div>
       <h1 className="mb-1 text-lg font-semibold">Welcome back</h1>
       <p className="mb-6 text-sm text-muted">Sign in to your Tracer account.</p>
+
+      <GoogleAuthButton />
 
       <form onSubmit={onSubmit} noValidate>
         <Field>

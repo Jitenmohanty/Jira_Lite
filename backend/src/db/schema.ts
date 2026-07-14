@@ -38,7 +38,8 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   name: varchar('name', { length: 120 }).notNull(),
-  passwordHash: text('password_hash').notNull(),
+  // Nullable: OAuth-only accounts (e.g. Google sign-in) have no password.
+  passwordHash: text('password_hash'),
   avatarUrl: text('avatar_url'),
   emailVerified: boolean('email_verified').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

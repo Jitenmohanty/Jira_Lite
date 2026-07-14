@@ -15,6 +15,13 @@
       "when": 1783957403578,
       "tag": "0001_tricky_strong_guy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783993326579,
+      "tag": "0002_large_nitro",
+      "breakpoints": true
     }
   ]
 }

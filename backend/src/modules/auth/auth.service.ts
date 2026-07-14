@@ -44,8 +44,8 @@ export async function signup(input: SignupInput): Promise<PublicUser> {
 export async function login(input: LoginInput): Promise<PublicUser> {
   const user = await db.query.users.findFirst({ where: eq(users.email, input.email) });
   // Constant-ish message regardless of which half failed, to avoid leaking
-  // which emails are registered.
-  if (!user || !(await verifyPassword(input.password, user.passwordHash))) {
+  // which emails are registered (or that an account is Google-only).
+  if (!user || !user.passwordHash || !(await verifyPassword(input.password, user.passwordHash))) {
     throw unauthorized('Invalid email or password');
   }
   return toPublicUser(user);

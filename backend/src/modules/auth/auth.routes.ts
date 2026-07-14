@@ -3,6 +3,7 @@ import { requireAuth } from '../../middleware/require-auth';
 import { setAuthCookie, clearAuthCookie } from '../../lib/cookies';
 import { signToken } from '../../lib/jwt';
 import { unauthorized } from '../../lib/http-errors';
+import { env, isProd } from '../../config/env';
 import {
   forgotPasswordSchema,
   loginSchema,
@@ -17,8 +18,17 @@ import {
   sendVerificationEmail,
   verifyEmail,
 } from './verification.service';
+import {
+  buildGoogleAuthUrl,
+  exchangeGoogleCode,
+  generateState,
+  isGoogleConfigured,
+  upsertGoogleUser,
+} from './oauth.service';
 
 export const authRouter = Router();
+
+const OAUTH_STATE_COOKIE = 'oauth_state';
 
 // POST /auth/signup — create an account, start a session.
 authRouter.post('/signup', async (req, res) => {
@@ -73,4 +83,47 @@ authRouter.post('/reset-password', async (req, res) => {
   const { token, password } = resetPasswordSchema.parse(req.body);
   await resetPassword(token, password);
   res.json({ ok: true });
+});
+
+// GET /auth/config — public feature flags the frontend uses to render options.
+authRouter.get('/config', (_req, res) => {
+  res.json({ google: isGoogleConfigured() });
+});
+
+// GET /auth/google — start the Google OAuth2 flow.
+authRouter.get('/google', (_req, res) => {
+  if (!isGoogleConfigured()) {
+    res.redirect(`${env.APP_URL}/login?error=oauth_unavailable`);
+    return;
+  }
+  const state = generateState();
+  res.cookie(OAUTH_STATE_COOKIE, state, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isProd,
+    maxAge: 10 * 60 * 1000,
+    path: '/',
+  });
+  res.redirect(buildGoogleAuthUrl(state));
+});
+
+// GET /auth/google/callback — verify state, exchange code, start a session.
+authRouter.get('/google/callback', async (req, res) => {
+  const { code, state } = req.query as { code?: string; state?: string };
+  const cookieState = req.cookies?.[OAUTH_STATE_COOKIE] as string | undefined;
+  res.clearCookie(OAUTH_STATE_COOKIE, { path: '/' });
+
+  // CSRF: the returned state must match the one we stored.
+  if (!code || !state || !cookieState || state !== cookieState) {
+    res.redirect(`${env.APP_URL}/login?error=oauth`);
+    return;
+  }
+  try {
+    const profile = await exchangeGoogleCode(code);
+    const user = await upsertGoogleUser(profile);
+    setAuthCookie(res, signToken(user.id));
+    res.redirect(`${env.APP_URL}/app`);
+  } catch {
+    res.redirect(`${env.APP_URL}/login?error=oauth`);
+  }
 });

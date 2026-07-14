@@ -28,6 +28,13 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().default('Tracer <no-reply@tracer.dev>'),
+
+  // Google OAuth (optional). When both ID and secret are set, "Continue with
+  // Google" is enabled. Create credentials at console.cloud.google.com and set
+  // the redirect URI to <this API>/auth/google/callback.
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.string().default('http://localhost:4000/auth/google/callback'),
 });
 
 const parsed = envSchema.safeParse(process.env);
