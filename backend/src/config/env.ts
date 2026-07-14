@@ -24,7 +24,12 @@ const envSchema = z.object({
   // test inbox is created automatically and a preview URL is logged.
   // For Gmail: host smtp.gmail.com, port 465, user = address, pass = app password.
   SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  // Treat an empty string (e.g. an unset `${SMTP_PORT:-}` in docker-compose) as
+  // undefined so coercion doesn't turn "" into 0 and fail the positivity check.
+  SMTP_PORT: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.coerce.number().int().positive().optional(),
+  ),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().default('Tracer <no-reply@tracer.dev>'),
