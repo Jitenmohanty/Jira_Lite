@@ -33,5 +33,10 @@ Thumbs.db
 # Drizzle
 drizzle/meta/_journal.tmp
 
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
 # Misc
 *.tsbuildinfo

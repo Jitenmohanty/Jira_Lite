@@ -272,11 +272,16 @@ The same infrastructure powers **cron** via BullMQ repeatable jobs — one syste
 ## Testing
 
 ```bash
-cd backend && npm test    # vitest integration tests (Postgres + Redis)
+cd backend && npm test          # vitest unit + integration (Postgres + Redis)
+
+# End-to-end (needs the API :4000 seeded and web :3000 running):
+cd frontend && npm run test:e2e # Playwright
 ```
 
-Integration tests cover the issue lifecycle (incl. the `issue_number` concurrency case) and the
-email-verification / password-reset flows.
+Backend tests cover RBAC rules, the issue lifecycle (incl. the `issue_number` concurrency case),
+org/project/membership rules (last-owner guard, key generation), and email verification /
+password reset. Playwright E2E covers login and the board. CI runs the backend suite against
+Postgres + Redis service containers on every push.
 
 ## API overview
 
