@@ -1,8 +1,10 @@
 import express, { type Express } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import morgan from 'morgan';
-import { env, isProd } from './config/env';
+import helmet from 'helmet';
+import { pinoHttp } from 'pino-http';
+import { env } from './config/env';
+import { logger } from './lib/logger';
 import { requireAuth } from './middleware/require-auth';
 import { authLimiter } from './middleware/rate-limit';
 import { authRouter } from './modules/auth/auth.routes';
@@ -21,8 +23,17 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler';
 export function createApp(): Express {
   const app = express();
 
-  // Request logging (concise in dev, Apache-combined in prod).
-  app.use(morgan(isProd ? 'combined' : 'dev'));
+  // Secure headers. CSP is irrelevant for a JSON API and CORP is relaxed so the
+  // cross-origin SPA can read responses (CORS handles the actual policy).
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
+  // Structured request logging (health checks are noisy — skip them).
+  app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/health' } }));
 
   // CORS locked to the configured frontend origin; credentials enabled so the
   // HTTP-only auth cookie is accepted.
