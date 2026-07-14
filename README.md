@@ -33,7 +33,8 @@ optimistic UI, and clean full-stack architecture.
 - Per-project sequential issue identifiers (e.g. `TRC-14`) that stay **correct under concurrent
   inserts**.
 - **Activity feed** of every mutation, grouped by day.
-- **Command palette** (`⌘/Ctrl+K`) for fast navigation and actions.
+- **Command palette** (`⌘/Ctrl+K`) for fast navigation, actions, and **issue search** — jump
+  straight to any issue. Issues are **deep-linkable** (`?issue=…`).
 - **Notifications** — in-app bell (unread badge) **and** email when you're assigned an issue.
 - **Auth**: email/password **and Google OAuth2**, email verification, and password reset — all
   with secure, hashed, expiring tokens and a JWT stored in an HTTP-only cookie.
@@ -297,6 +298,7 @@ Interactive docs (Swagger UI) at **`/docs`**; the raw OpenAPI spec at **`/openap
 | Orgs          | `GET/POST /orgs` · `GET/POST /orgs/:id/members` · `PATCH /orgs/:id/members/:userId` |
 | Projects      | `GET/POST /orgs/:id/projects` · `GET/PATCH/DELETE /orgs/:id/projects/:projectId` |
 | Issues        | `GET/POST /projects/:id/issues` · `GET/PATCH/DELETE /issues/:issueId`            |
+| Issue search  | `GET /orgs/:id/issues/search?q=`                                                |
 | Comments      | `GET/POST /issues/:issueId/comments`                                             |
 | Activity      | `GET /orgs/:id/activity`                                                         |
 | Notifications | `GET /notifications` · `POST /notifications/read-all` · `PATCH /notifications/:id/read` |

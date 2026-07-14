@@ -13,7 +13,7 @@ import { csrfProtection } from './lib/csrf';
 import { authRouter } from './modules/auth/auth.routes';
 import { orgsRouter } from './modules/orgs/orgs.routes';
 import { projectsRouter } from './modules/projects/projects.routes';
-import { issuesRouter, projectIssuesRouter } from './modules/issues/issues.routes';
+import { issuesRouter, orgIssuesRouter, projectIssuesRouter } from './modules/issues/issues.routes';
 import { commentsRouter } from './modules/comments/comments.routes';
 import { activityRouter } from './modules/activity/activity.routes';
 import { notificationsRouter } from './modules/notifications/notifications.routes';
@@ -63,6 +63,7 @@ export function createApp(): Express {
   app.use('/orgs', requireAuth, csrfProtection, orgsRouter);
   app.use('/orgs/:orgId/projects', requireAuth, csrfProtection, projectsRouter);
   app.use('/orgs/:orgId/activity', requireAuth, csrfProtection, activityRouter);
+  app.use('/orgs/:orgId/issues', requireAuth, csrfProtection, orgIssuesRouter);
   app.use('/projects/:projectId/issues', requireAuth, csrfProtection, projectIssuesRouter);
   app.use('/issues', requireAuth, csrfProtection, issuesRouter);
   app.use('/issues/:issueId/comments', requireAuth, csrfProtection, commentsRouter);

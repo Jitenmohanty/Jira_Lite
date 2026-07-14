@@ -3,7 +3,27 @@ import { requireRole } from '../../middleware/require-role';
 import { orgFromIssue, orgFromProject } from '../../lib/org-resolvers';
 import { unauthorized } from '../../lib/http-errors';
 import { createIssueSchema, listIssuesQuerySchema, updateIssueSchema } from './issues.schemas';
-import { createIssue, deleteIssue, getIssue, listIssues, updateIssue } from './issues.service';
+import {
+  createIssue,
+  deleteIssue,
+  getIssue,
+  listIssues,
+  searchIssues,
+  updateIssue,
+} from './issues.service';
+
+/** Org-scoped issue search: mounted at /orgs/:orgId/issues. */
+export const orgIssuesRouter = Router({ mergeParams: true });
+
+orgIssuesRouter.get('/search', requireRole('member'), async (req, res) => {
+  const q = String(req.query.q ?? '').trim();
+  if (q.length < 2) {
+    res.json({ issues: [] });
+    return;
+  }
+  const results = await searchIssues(req.params.orgId as string, q, 10);
+  res.json({ issues: results });
+});
 
 /** Project-scoped list/create: mounted at /projects/:projectId/issues. */
 export const projectIssuesRouter = Router({ mergeParams: true });

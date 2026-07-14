@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { CircleDashed } from 'lucide-react';
 import { useActiveOrg } from '@/hooks/use-active-org';
 import { useProject } from '@/hooks/use-projects';
@@ -16,15 +17,31 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 
 export default function ProjectPage({ params }: { params: { projectId: string } }) {
-  const { projectId } = params;
+  // useSearchParams needs a Suspense boundary in the App Router.
+  return (
+    <Suspense fallback={null}>
+      <ProjectBoard projectId={params.projectId} />
+    </Suspense>
+  );
+}
+
+function ProjectBoard({ projectId }: { projectId: string }) {
   const { org } = useActiveOrg();
   const { data: project } = useProject(org?.id, projectId);
   const viewMode = useUIStore((s) => s.viewMode);
   const openCreateIssue = useUIStore((s) => s.openCreateIssue);
 
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [filters, setFilters] = useState<IssueFilters>({});
   const { data: issues, isLoading } = useIssues(projectId, filters);
-  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+
+  // The open issue lives in the URL (?issue=…) so it's deep-linkable/shareable.
+  const selectedIssueId = searchParams.get('issue');
+  const openIssue = (id: string) => router.push(`${pathname}?issue=${id}`, { scroll: false });
+  const closeIssue = () => router.push(pathname, { scroll: false });
 
   const hasFilters = Boolean(filters.status || filters.priority || filters.assignee);
 
@@ -86,20 +103,16 @@ export default function ProjectPage({ params }: { params: { projectId: string } 
             />
           </div>
         ) : viewMode === 'board' ? (
-          <Board projectId={projectId} issues={issues ?? []} onOpenIssue={setSelectedIssueId} />
+          <Board projectId={projectId} issues={issues ?? []} onOpenIssue={openIssue} />
         ) : (
-          <ListView issues={issues ?? []} onOpenIssue={setSelectedIssueId} />
+          <ListView issues={issues ?? []} onOpenIssue={openIssue} />
         )}
       </div>
 
       <CreateIssueDialog projectId={projectId} />
 
       {selectedIssueId && (
-        <IssueDetailPanel
-          issueId={selectedIssueId}
-          projectId={projectId}
-          onClose={() => setSelectedIssueId(null)}
-        />
+        <IssueDetailPanel issueId={selectedIssueId} projectId={projectId} onClose={closeIssue} />
       )}
     </div>
   );

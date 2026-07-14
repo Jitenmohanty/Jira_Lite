@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, isNull, sql, type SQL } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { issues, memberships, projects } from '../../db/schema';
 import { badRequest, notFound } from '../../lib/http-errors';
@@ -120,6 +120,30 @@ export async function listIssues(projectId: string, q: ListIssuesQuery) {
     issues: rows.map((r) => ({ ...r, identifier: identifier(project.key, r.issueNumber) })),
     pagination: { limit: q.limit, offset: q.offset, total },
   };
+}
+
+/** Org-wide issue search by title (used by the command palette). */
+export async function searchIssues(orgId: string, q: string, limit = 10) {
+  const rows = await db
+    .select({
+      id: issues.id,
+      issueNumber: issues.issueNumber,
+      title: issues.title,
+      projectId: issues.projectId,
+      key: projects.key,
+    })
+    .from(issues)
+    .innerJoin(projects, eq(issues.projectId, projects.id))
+    .where(and(eq(projects.orgId, orgId), ilike(issues.title, `%${q}%`)))
+    .orderBy(desc(issues.updatedAt))
+    .limit(limit);
+
+  return rows.map((r) => ({
+    id: r.id,
+    identifier: identifier(r.key, r.issueNumber),
+    title: r.title,
+    projectId: r.projectId,
+  }));
 }
 
 export async function getIssue(issueId: string) {

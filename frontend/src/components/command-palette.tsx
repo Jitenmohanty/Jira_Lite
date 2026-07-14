@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Activity,
+  CircleDot,
   FolderKanban,
   LayoutDashboard,
   LogOut,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useActiveOrg } from '@/hooks/use-active-org';
 import { useProjects } from '@/hooks/use-projects';
+import { useIssueSearch } from '@/hooks/use-issue-search';
 import { useLogout } from '@/hooks/use-auth';
 import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
@@ -36,6 +38,7 @@ export function CommandPalette() {
   const openCreateIssue = useUIStore((s) => s.openCreateIssue);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+  const { data: issueResults } = useIssueSearch(org?.id, query);
 
   // ⌘K / Ctrl+K toggles the palette anywhere in the app.
   useEffect(() => {
@@ -111,11 +114,22 @@ export function CommandPalette() {
     return list;
   }, [projects, router, setOpen, openCreateIssue, logout]);
 
-  const filtered = useMemo(() => {
+  // Commands filtered by the query, then matching issues appended as jump targets.
+  const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return commands;
-    return commands.filter((c) => c.label.toLowerCase().includes(q));
-  }, [commands, query]);
+    const cmds = q ? commands.filter((c) => c.label.toLowerCase().includes(q)) : commands;
+    const issueCmds: Command[] = (issueResults ?? []).map((iss) => ({
+      id: `issue-${iss.id}`,
+      label: `${iss.identifier}  ${iss.title}`,
+      hint: 'Issue',
+      icon: <CircleDot size={15} />,
+      run: () => {
+        setOpen(false);
+        router.push(`/app/projects/${iss.projectId}?issue=${iss.id}`);
+      },
+    }));
+    return [...cmds, ...issueCmds];
+  }, [commands, query, issueResults, router, setOpen]);
 
   useEffect(() => setActive(0), [query]);
 
@@ -124,13 +138,13 @@ export function CommandPalette() {
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActive((a) => Math.min(a + 1, filtered.length - 1));
+      setActive((a) => Math.min(a + 1, results.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setActive((a) => Math.max(a - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      filtered[active]?.run();
+      results[active]?.run();
     } else if (e.key === 'Escape') {
       setOpen(false);
     }
@@ -156,15 +170,15 @@ export function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search commands and projects…"
+            placeholder="Search commands, projects, and issues…"
             className="h-11 w-full bg-transparent text-sm text-foreground placeholder:text-faint focus:outline-none"
           />
         </div>
         <div className="max-h-[320px] overflow-y-auto scrollbar-thin p-1.5">
-          {filtered.length === 0 && (
+          {results.length === 0 && (
             <p className="px-3 py-6 text-center text-sm text-faint">No results</p>
           )}
-          {filtered.map((c, i) => (
+          {results.map((c, i) => (
             <button
               key={c.id}
               onMouseEnter={() => setActive(i)}
