@@ -51,3 +51,30 @@ export function useLogout() {
     },
   });
 }
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (email: string) => api.post('/auth/forgot-password', { email }),
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (input: { token: string; password: string }) =>
+      api.post('/auth/reset-password', input),
+  });
+}
+
+export function useVerifyEmail() {
+  return useMutation({
+    mutationFn: (token: string) => api.post('/auth/verify-email', { token }),
+  });
+}
+
+export function useResendVerification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post('/auth/verify-email/request'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: meKey }),
+  });
+}

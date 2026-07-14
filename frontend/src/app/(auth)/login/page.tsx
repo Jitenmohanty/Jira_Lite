@@ -50,7 +50,12 @@ export default function LoginPage() {
           <FieldError>{errors.email?.message}</FieldError>
         </Field>
         <Field>
-          <Label htmlFor="password">Password</Label>
+          <div className="mb-1.5 flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link href="/forgot-password" className="text-xs text-accent hover:underline">
+              Forgot password?
+            </Link>
+          </div>
           <Input
             id="password"
             type="password"

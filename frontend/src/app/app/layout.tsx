@@ -6,6 +6,7 @@ import { useMe } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 import { CommandPalette } from '@/components/command-palette';
+import { VerifyEmailBanner } from '@/components/shell/verify-email-banner';
 import { Spinner } from '@/components/ui/spinner';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -29,6 +30,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar user={user} />
+        <VerifyEmailBanner />
         <main className="min-h-0 flex-1 overflow-auto scrollbar-thin">{children}</main>
       </div>
       <CommandPalette />
