@@ -17,6 +17,7 @@ import { projectsRouter } from './modules/projects/projects.routes';
 import { issuesRouter, orgIssuesRouter, projectIssuesRouter } from './modules/issues/issues.routes';
 import { commentsRouter } from './modules/comments/comments.routes';
 import { activityRouter } from './modules/activity/activity.routes';
+import { insightsRouter } from './modules/insights/insights.routes';
 import { notificationsRouter } from './modules/notifications/notifications.routes';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 
@@ -80,6 +81,7 @@ export function createApp(): Express {
   app.use('/orgs', requireAuth, csrfProtection, orgsRouter);
   app.use('/orgs/:orgId/projects', requireAuth, csrfProtection, projectsRouter);
   app.use('/orgs/:orgId/activity', requireAuth, csrfProtection, activityRouter);
+  app.use('/orgs/:orgId/insights', requireAuth, csrfProtection, insightsRouter);
   app.use('/orgs/:orgId/issues', requireAuth, csrfProtection, orgIssuesRouter);
   app.use('/projects/:projectId/issues', requireAuth, csrfProtection, projectIssuesRouter);
   app.use('/issues', requireAuth, csrfProtection, issuesRouter);

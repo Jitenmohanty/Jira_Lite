@@ -18,7 +18,11 @@ optimistic UI, and clean full-stack architecture.
   </tr>
   <tr>
     <td width="50%"><img src="docs/screenshots/activity.png" alt="Activity feed" /></td>
+    <td width="50%"><img src="docs/screenshots/insights.png" alt="Insights dashboard" /></td>
+  </tr>
+  <tr>
     <td width="50%"><img src="docs/screenshots/light-mode.png" alt="Light theme" /></td>
+    <td width="50%"></td>
   </tr>
 </table>
 
@@ -34,7 +38,8 @@ optimistic UI, and clean full-stack architecture.
   backend middleware and mirrored in the UI.
 - Per-project sequential issue identifiers (e.g. `TRC-14`) that stay **correct under concurrent
   inserts**.
-- **Activity feed** of every mutation, grouped by day.
+- **Activity feed** of every mutation, grouped by day, and an **analytics dashboard** (KPIs,
+  created-vs-completed throughput, status/priority breakdowns, per-assignee load).
 - **Command palette** (`⌘/Ctrl+K`) for fast navigation, actions, and **issue search** — jump
   straight to any issue. Issues are **deep-linkable** (`?issue=…`).
 - **Notifications** — in-app bell (unread badge) **and** email when you're assigned an issue.
@@ -110,6 +115,30 @@ npm run dev            # http://localhost:3000
 > for real delivery. **Google sign-in** is optional — set `GOOGLE_CLIENT_ID/SECRET` to enable it.
 
 ## Architecture
+
+```mermaid
+flowchart LR
+    U["Browser (SPA)"]
+    subgraph Frontend [Vercel]
+      FE["Next.js 14"]
+    end
+    subgraph Backend [Render]
+      API["Express API<br/>REST + Socket.IO"]
+      WK["BullMQ worker<br/>email · notifications · cron"]
+    end
+    PG[("PostgreSQL<br/>Drizzle")]
+    RD[("Redis<br/>queues · rate limit")]
+    SMTP["SMTP / email"]
+
+    U --> FE
+    FE -- "credentialed fetch + WebSocket" --> API
+    API --> PG
+    API -- "enqueue jobs" --> RD
+    WK -- "consume jobs" --> RD
+    WK --> PG
+    WK --> SMTP
+    API -. "issue/notification events" .-> FE
+```
 
 - **Two independent apps, HTTP only.** No shared code crosses the boundary; the frontend holds
   hand-maintained TypeScript types mirroring the API responses.
@@ -303,4 +332,5 @@ Interactive docs (Swagger UI) at **`/docs`**; the raw OpenAPI spec at **`/openap
 | Issue search  | `GET /orgs/:id/issues/search?q=`                                                |
 | Comments      | `GET/POST /issues/:issueId/comments`                                             |
 | Activity      | `GET /orgs/:id/activity`                                                         |
+| Insights      | `GET /orgs/:id/insights`                                                        |
 | Notifications | `GET /notifications` · `POST /notifications/read-all` · `PATCH /notifications/:id/read` |

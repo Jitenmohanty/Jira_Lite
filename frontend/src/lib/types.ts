@@ -108,6 +108,14 @@ export const PRIORITY_LABEL: Record<IssuePriority, string> = {
   urgent: 'Urgent',
 };
 
+export interface Insights {
+  totals: { total: number; open: number; done: number; completedLast7Days: number };
+  statusCounts: Record<IssueStatus, number>;
+  priorityCounts: Record<IssuePriority, number>;
+  throughput: { day: string; created: number; completed: number }[];
+  assigneeLoad: { name: string; count: number }[];
+}
+
 export interface Notification {
   id: string;
   type: string;
