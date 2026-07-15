@@ -1,12 +1,26 @@
 /**
- * Helpers for interpreting Anthropic API errors in the AI worker. Kept separate
+ * Helpers for interpreting Gemini API errors in the AI worker. Kept separate
  * from the worker so they can be unit-tested without a Redis/BullMQ harness.
  */
 
-/** True for provider limits we should pause-and-retry rather than fail on. */
+/**
+ * True for provider limits we should pause-and-retry rather than fail on:
+ * 429 (RESOURCE_EXHAUSTED — free-tier rate limits) and 503 (UNAVAILABLE —
+ * model overloaded). `@google/genai` throws an `ApiError` carrying `.status`.
+ */
 export function isRateLimited(err: unknown): boolean {
   const status = (err as { status?: number })?.status;
-  return status === 429 || status === 529;
+  return status === 429 || status === 503;
+}
+
+/**
+ * True for client errors that won't succeed on retry (invalid key, malformed
+ * request, permission denied) — but NOT 429, which we handle as a rate limit.
+ * The worker fails these fast instead of exhausting its retry budget.
+ */
+export function isFatalClientError(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  return typeof status === 'number' && status >= 400 && status < 500 && status !== 429;
 }
 
 /** Retry delay (ms) from an error's `retry-after` header, else a fallback. */

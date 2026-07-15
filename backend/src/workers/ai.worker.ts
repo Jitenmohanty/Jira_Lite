@@ -1,18 +1,19 @@
-import { Worker } from 'bullmq';
+import { UnrecoverableError, Worker } from 'bullmq';
 import { bullConnection } from '../queues/connection';
 import { QUEUE, type AiJobData, type AiJobResult } from '../queues/queues';
 import { askTracer } from '../modules/ai/ai.service';
-import { isRateLimited, retryAfterMs } from '../modules/ai/provider-errors';
+import { isFatalClientError, isRateLimited, retryAfterMs } from '../modules/ai/provider-errors';
 
 /**
  * Runs "Ask Tracer" questions off the request path.
  *
  * Auto-pause / auto-resume on provider limits (the requested behaviour): when
- * Anthropic returns 429 (rate limited) or 529 (overloaded), we pause the whole
- * AI queue for the provider's `retry-after` via `worker.rateLimit()` and throw
- * `Worker.RateLimitError()`. BullMQ then holds the job and every other queued
- * question, and resumes them automatically once the window elapses — no human
- * intervention, no dropped questions, and the retry does not burn an attempt.
+ * Gemini returns 429 (rate limited — common on the free tier) or 503
+ * (overloaded), we pause the whole AI queue for the provider's `retry-after`
+ * via `worker.rateLimit()` and throw `Worker.RateLimitError()`. BullMQ then
+ * holds the job and every other queued question, and resumes them automatically
+ * once the window elapses — no human intervention, no dropped questions, and
+ * the retry does not burn an attempt.
  */
 export function startAiWorker(): Worker<AiJobData, AiJobResult> {
   const worker = new Worker<AiJobData, AiJobResult>(
@@ -23,12 +24,19 @@ export function startAiWorker(): Worker<AiJobData, AiJobResult> {
       } catch (err) {
         if (isRateLimited(err)) {
           const status = (err as { status?: number }).status;
-          const ms = retryAfterMs(err, status === 429 ? 15_000 : 5_000);
+          // Free-tier rate limits are per-minute, so pause ~30s on 429; 503 is
+          // transient overload, so a short pause is enough.
+          const ms = retryAfterMs(err, status === 429 ? 30_000 : 5_000);
           console.warn(`[ai] provider ${status}; pausing queue ${Math.round(ms / 1000)}s (auto-resume)`);
           await worker.rateLimit(ms);
           throw Worker.RateLimitError();
         }
-        throw err;
+        // Non-rate-limit client errors (bad key, malformed request) won't fix
+        // themselves — fail immediately instead of burning 8 retries.
+        if (isFatalClientError(err)) {
+          throw new UnrecoverableError((err as Error).message);
+        }
+        throw err; // 5xx / network — let BullMQ retry with backoff
       }
     },
     { connection: bullConnection, concurrency: 2 },

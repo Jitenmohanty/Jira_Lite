@@ -41,13 +41,15 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().default('http://localhost:4000/auth/google/callback'),
 
-  // "Ask Tracer" AI assistant (optional). When ANTHROPIC_API_KEY is set the
+  // "Ask Tracer" AI assistant (optional). When GEMINI_API_KEY is set the
   // feature is enabled; otherwise the endpoints report the feature as disabled.
-  // Get a key at console.anthropic.com. Semantic search uses a local embedding
-  // model (no key required), so retrieval works even before the LLM is wired.
-  ANTHROPIC_API_KEY: z.string().optional(),
-  // Default to the most capable Opus tier; override to trade cost for latency.
-  AI_MODEL: z.string().default('claude-opus-4-8'),
+  // Get a free key at aistudio.google.com/apikey. Semantic search uses a local
+  // embedding model (no key required), so retrieval works even before the LLM
+  // is wired.
+  GEMINI_API_KEY: z.string().optional(),
+  // Gemini 2.5 Flash is fast and available on the free tier; override to a
+  // stronger model if you have quota for it.
+  AI_MODEL: z.string().default('gemini-2.5-flash'),
   // Hard ceilings so a single question can never run away on cost.
   AI_MAX_TOKENS: z.coerce.number().int().positive().default(1024),
   AI_MAX_TOOL_ITERATIONS: z.coerce.number().int().positive().default(6),

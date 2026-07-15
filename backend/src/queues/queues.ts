@@ -78,9 +78,9 @@ export interface AiJobResult {
 
 /**
  * The AI queue leans on BullMQ's backoff + queue-level rate limiting to survive
- * Anthropic rate limits with no human intervention: the worker pauses the queue
- * for the provider's `retry-after` and BullMQ auto-resumes the same job later.
- * Attempts are generous so a transient 429/529 never drops a question.
+ * Gemini rate limits with no human intervention: the worker pauses the queue
+ * for the provider's retry window and BullMQ auto-resumes the same job later.
+ * Attempts are generous so a transient 429/503 never drops a question.
  */
 export const aiQueue = new Queue<AiJobData, AiJobResult>(QUEUE.ai, {
   connection: bullConnection,

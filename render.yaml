@@ -64,9 +64,9 @@ services:
       - key: EMAIL_FROM
         sync: false
       # "Ask Tracer" assistant. Optional — semantic search works without it, but
-      # the answering agent needs an Anthropic key. Render's Postgres supports
+      # the answering agent needs a (free) Gemini key. Render's Postgres supports
       # pgvector (the migration runs CREATE EXTENSION vector on boot).
-      - key: ANTHROPIC_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
 
   # Background worker (BullMQ) — email, notifications, scheduled + AI jobs.
@@ -101,6 +101,6 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
-      # The worker runs the "Ask Tracer" agent, so it needs the Anthropic key.
-      - key: ANTHROPIC_API_KEY
+      # The worker runs the "Ask Tracer" agent, so it needs the Gemini key.
+      - key: GEMINI_API_KEY
         sync: false

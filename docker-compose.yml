@@ -41,8 +41,8 @@ services:
       JWT_SECRET: local-compose-secret-change-me-please
       CORS_ORIGIN: http://localhost:3000
       APP_URL: http://localhost:3000
-      # "Ask Tracer" agent (optional). Semantic search works without it.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # "Ask Tracer" agent (optional, free Gemini key). Search works without it.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports:
       - '4000:4000'
     depends_on:
@@ -62,7 +62,7 @@ services:
       JWT_SECRET: local-compose-secret-change-me-please
       APP_URL: http://localhost:3000
       # "Ask Tracer" agent runs in the worker (off the request path).
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       # Optional SMTP for real email delivery (else emails are logged).
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
