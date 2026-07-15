@@ -20,6 +20,7 @@ export const openapiSpec = {
     { name: 'Issues' },
     { name: 'Comments' },
     { name: 'Notifications' },
+    { name: 'AI' },
   ],
   components: {
     securitySchemes: {
@@ -265,6 +266,35 @@ export const openapiSpec = {
         tags: ['Notifications'],
         summary: 'List notifications + unread count',
         responses: { '200': { description: 'OK' } },
+      },
+    },
+    '/orgs/{orgId}/ai': {
+      get: {
+        tags: ['AI'],
+        summary: 'Whether the "Ask Tracer" assistant is enabled (member+)',
+        responses: { '200': { description: '{ enabled: boolean }' } },
+      },
+    },
+    '/orgs/{orgId}/ai/ask': {
+      post: {
+        tags: ['AI'],
+        summary: 'Ask a question about the org\'s issues (member+). Enqueues a job.',
+        description:
+          'Runs a guardrailed, org-scoped retrieval agent on a background queue. Returns a job id to poll. Rate-limited per user; 503 if the assistant is not configured.',
+        responses: {
+          '202': { description: '{ jobId }' },
+          '400': { description: 'Invalid question' },
+          '503': { description: 'AI assistant not configured' },
+        },
+      },
+    },
+    '/orgs/{orgId}/ai/ask/{jobId}': {
+      get: {
+        tags: ['AI'],
+        summary: 'Poll for an answer (member+)',
+        description:
+          'status is working | retrying (auto-resuming after a provider rate limit) | completed | failed. On completed, result = { answer, citations }.',
+        responses: { '200': { description: 'Job status + result' }, '404': { description: 'Not found' } },
       },
     },
   },

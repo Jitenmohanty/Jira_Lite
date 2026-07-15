@@ -15,5 +15,12 @@ export async function registerRepeatableJobs(): Promise<void> {
     { pattern: '0 3 * * *' }, // 03:00 every day
     { name: 'task:token-cleanup', data: { task: 'token-cleanup' } },
   );
-  console.log('🕓 Repeatable jobs registered: activity-digest (08:00), token-cleanup (03:00)');
+  await schedulerQueue.upsertJobScheduler(
+    'embed-backfill-hourly',
+    { pattern: '15 * * * *' }, // :15 every hour — catches any un-indexed issues
+    { name: 'task:embed-backfill', data: { task: 'embed-backfill' } },
+  );
+  console.log(
+    '🕓 Repeatable jobs registered: activity-digest (08:00), token-cleanup (03:00), embed-backfill (hourly)',
+  );
 }

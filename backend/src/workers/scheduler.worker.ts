@@ -3,6 +3,7 @@ import { bullConnection } from '../queues/connection';
 import { QUEUE, type SchedulerJobData } from '../queues/queues';
 import { runActivityDigest } from '../modules/activity/digest.service';
 import { cleanupExpiredTokens } from '../modules/auth/verification.service';
+import { backfillEmbeddings } from '../modules/ai/backfill.service';
 
 /** Runs scheduled/cron tasks dispatched from the scheduler queue. */
 export function startSchedulerWorker(): Worker<SchedulerJobData> {
@@ -18,6 +19,11 @@ export function startSchedulerWorker(): Worker<SchedulerJobData> {
         case 'token-cleanup': {
           const n = await cleanupExpiredTokens();
           console.log(`[scheduler] token-cleanup: removed ${n} expired tokens`);
+          break;
+        }
+        case 'embed-backfill': {
+          const n = await backfillEmbeddings();
+          console.log(`[scheduler] embed-backfill: enqueued ${n} un-indexed issues`);
           break;
         }
       }

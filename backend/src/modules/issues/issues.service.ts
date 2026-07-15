@@ -5,6 +5,7 @@ import { badRequest, notFound } from '../../lib/http-errors';
 import { recordActivity } from '../../lib/activity';
 import type { Executor } from '../../lib/activity';
 import { emitIssueChanged } from '../../realtime/emit';
+import { enqueueEmbedding } from '../../queues/queues';
 import { notifyIssueAssigned } from '../notifications/notifications.service';
 import type { CreateIssueInput, ListIssuesQuery, UpdateIssueInput } from './issues.schemas';
 
@@ -74,6 +75,9 @@ export async function createIssue(actorId: string, projectId: string, input: Cre
 
   // Broadcast to org members viewing the board.
   emitIssueChanged(orgId, projectId, created.id);
+
+  // Index for semantic search (fire-and-forget; the worker retries on failure).
+  void enqueueEmbedding(created.id).catch(() => {});
 
   // Notify the assignee (in-app + email) after the transaction commits.
   if (created.assigneeId) {
@@ -195,6 +199,7 @@ export async function updateIssue(actorId: string, issueId: string, input: Updat
   });
 
   emitIssueChanged(current.project.orgId, current.projectId, updated.id);
+  void enqueueEmbedding(updated.id).catch(() => {});
 
   // Notify on a genuine reassignment to a different person.
   if (updated.assigneeId && updated.assigneeId !== current.assigneeId) {

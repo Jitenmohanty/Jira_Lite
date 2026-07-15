@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut, Menu, Search } from 'lucide-react';
+import { LogOut, Menu, Search, Sparkles } from 'lucide-react';
 import { useLogout } from '@/hooks/use-auth';
 import { useActiveOrg } from '@/hooks/use-active-org';
 import { useProjects } from '@/hooks/use-projects';
+import { useAiEnabled } from '@/hooks/use-ask-tracer';
 import { useUIStore } from '@/stores/ui-store';
 import { Avatar } from '@/components/ui/avatar';
 import { ThemeToggle } from './theme-toggle';
@@ -18,7 +19,9 @@ export function Topbar({ user }: { user: User }) {
   const logout = useLogout();
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const setCommandOpen = useUIStore((s) => s.setCommandOpen);
+  const setAskOpen = useUIStore((s) => s.setAskOpen);
   const { org } = useActiveOrg();
+  const { data: aiConfig } = useAiEnabled(org?.id);
   const projectMatch = pathname.match(/^\/app\/projects\/([^/]+)/);
   const { data: projects } = useProjects(projectMatch ? org?.id : undefined);
   const project = projectMatch ? projects?.find((p) => p.id === projectMatch[1]) : undefined;
@@ -62,6 +65,16 @@ export function Topbar({ user }: { user: User }) {
           <span>Search</span>
           <kbd className="rounded border border-border-subtle px-1 text-[10px]">⌘K</kbd>
         </button>
+        {aiConfig?.enabled && (
+          <button
+            onClick={() => setAskOpen(true)}
+            className="mr-1 flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-foreground"
+            aria-label="Ask Tracer"
+          >
+            <Sparkles size={13} className="text-accent" />
+            <span className="hidden sm:inline">Ask</span>
+          </button>
+        )}
         <NotificationBell />
         <ThemeToggle />
         <div className="relative">

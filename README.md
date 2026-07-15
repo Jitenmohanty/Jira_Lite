@@ -22,12 +22,18 @@ optimistic UI, and clean full-stack architecture.
   </tr>
   <tr>
     <td width="50%"><img src="docs/screenshots/light-mode.png" alt="Light theme" /></td>
-    <td width="50%"></td>
+    <td width="50%"><img src="docs/screenshots/ask-tracer-empty.png" alt="Ask Tracer AI assistant" /></td>
   </tr>
 </table>
 
 ## Features
 
+- **"Ask Tracer" AI assistant** — a guardrailed, **RAG-powered agent** that answers natural-language
+  questions about your issues ("what's blocking the release?", "who has the most open work?").
+  Semantic search over **pgvector** embeddings (computed **locally**, no per-query cost) feeds a
+  Claude agent with org-scoped tools; answers **cite the issues** they came from. Runs on a queue
+  that **auto-pauses and resumes on provider rate limits with no human intervention**. See
+  [AI assistant](#ask-tracer--ai-assistant) below.
 - **Kanban board** with smooth **drag-and-drop** between status columns and **optimistic
   updates** (the card moves instantly; the change reconciles with the server and rolls back on
   failure).
@@ -59,6 +65,7 @@ optimistic UI, and clean full-stack architecture.
 | Auth       | JWT (HTTP-only cookie) + Google OAuth2, bcrypt, tokenized email verify / reset |
 | Data       | PostgreSQL via **Drizzle ORM** + migrations                                    |
 | Async      | **Redis + BullMQ** queues & workers, repeatable (cron) jobs, Nodemailer email  |
+| AI         | Claude (Anthropic SDK) agent + tools; **pgvector** semantic search; local `all-MiniLM-L6-v2` embeddings (transformers.js) |
 | Hardening  | Helmet, Redis-backed rate limiting, pino structured logging                    |
 | Infra      | Docker Compose (Postgres + Redis + API + worker + web)                         |
 
@@ -165,6 +172,45 @@ flowchart LR
 - **Hardening**: Helmet secure headers, **Redis-backed** rate limiting on auth (shared across
   instances), **double-submit CSRF** protection on mutating requests (layered on the cookie's
   `SameSite=Lax`), and **pino** structured request logging.
+
+### Ask Tracer — AI assistant
+
+A retrieval-augmented agent that answers questions grounded in an org's own issues.
+
+```mermaid
+flowchart LR
+    Q["User question"] --> ASK["POST /ai/ask<br/>(rate-limited per user)"]
+    ASK -- "enqueue" --> AQ[("ai queue<br/>Redis / BullMQ")]
+    AQ --> AW["AI worker"]
+    AW --> AG["Claude agent<br/>(org-scoped tools)"]
+    AG -- "search_issues" --> VEC[("pgvector<br/>issue_embeddings")]
+    AG -- "get_issue / get_stats" --> PG[("PostgreSQL")]
+    AW -- "answer + citations" --> POLL["GET /ai/ask/:jobId"]
+
+    ISS["issue / comment<br/>created or edited"] -- "enqueue" --> EQ[("embedding queue")]
+    EQ --> EW["embedding worker<br/>local MiniLM"] --> VEC
+```
+
+- **Indexing.** Creating or editing an issue (or comment) enqueues an **embedding job**. A worker
+  builds the issue's document, embeds it with a **local `all-MiniLM-L6-v2` model** (transformers.js
+  — no API key, no per-vector cost), and upserts a 384-dim vector into `issue_embeddings`
+  (**pgvector**, HNSW index). A content hash skips re-embedding unchanged text; an hourly backfill
+  catches anything missed.
+- **Answering.** Questions run on a **queue**, off the request path. A bounded agentic loop gives
+  Claude three tools — `search_issues` (semantic), `get_issue`, `get_stats` — and synthesizes a
+  cited answer. The client polls for the result.
+- **Guardrails.** (1) **Tenant isolation** is enforced in code — every tool is bound to the org id
+  resolved from the authenticated membership, never from model output (verified: a foreign org id
+  returns zero results). (2) **Prompt-injection defence** — retrieved issue text is treated as
+  data; the system prompt forbids following instructions embedded in it. (3) **Cost caps** —
+  bounded tool iterations, `max_tokens`, and a per-user rate limit. (4) **Grounding** — answers
+  cite issue identifiers and admit when nothing relevant was found.
+- **Auto-pause / auto-resume on rate limits.** When Anthropic returns `429`/`529`, the worker
+  pauses the whole AI queue for the provider's `retry-after` (`worker.rateLimit()` +
+  `Worker.RateLimitError()`) and BullMQ resumes every queued question automatically — **no human
+  intervention, no dropped questions**, and the retry doesn't burn an attempt.
+- **Optional & degrades gracefully.** The feature is gated on `ANTHROPIC_API_KEY`; without it the
+  UI hides the panel. Semantic search itself needs no key.
 
 ## Domain model
 

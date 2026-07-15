@@ -7,6 +7,7 @@ import { useRealtime } from '@/hooks/use-realtime';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 import { CommandPalette } from '@/components/command-palette';
+import { AskTracerPanel } from '@/components/ai/ask-tracer-panel';
 import { VerifyEmailBanner } from '@/components/shell/verify-email-banner';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -38,6 +39,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <main className="min-h-0 flex-1 overflow-auto scrollbar-thin">{children}</main>
       </div>
       <CommandPalette />
+      <AskTracerPanel />
     </div>
   );
 }

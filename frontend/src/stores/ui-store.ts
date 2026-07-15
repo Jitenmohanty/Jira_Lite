@@ -28,6 +28,10 @@ interface UIState {
   /** Command palette (⌘K). Not persisted. */
   commandOpen: boolean;
   setCommandOpen: (open: boolean) => void;
+
+  /** "Ask Tracer" AI panel. Not persisted. */
+  askOpen: boolean;
+  setAskOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -49,6 +53,9 @@ export const useUIStore = create<UIState>()(
 
       commandOpen: false,
       setCommandOpen: (open) => set({ commandOpen: open }),
+
+      askOpen: false,
+      setAskOpen: (open) => set({ askOpen: open }),
     }),
     {
       name: 'tracer-ui',

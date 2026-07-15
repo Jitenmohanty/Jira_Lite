@@ -35,9 +35,22 @@ src/
 ├── config/env.ts     # Zod-validated environment config
 ├── db/               # drizzle schema, client, migrate + seed (Stage 1)
 ├── middleware/       # requireAuth, requireRole, error handler (Stage 2)
-├── modules/          # feature routers: auth, orgs, projects, issues, comments (Stage 2-3)
+├── modules/          # feature routers: auth, orgs, projects, issues, comments, ai
+│   └── ai/           # "Ask Tracer": local embeddings, pgvector retrieval, Claude agent + guardrails
+├── queues/           # BullMQ queues (email, scheduler, embedding, ai) + cron registration
+├── workers/          # queue consumers (email, scheduler, embedding, ai) — run via `npm run worker`
 └── lib/              # shared helpers (jwt, password, http errors)
 ```
+
+## AI assistant ("Ask Tracer")
+
+- Gated on `ANTHROPIC_API_KEY`; semantic search uses a **local** embedding model (no key).
+- Requires **pgvector** (`issue_embeddings.embedding`); the migration runs `CREATE EXTENSION vector`.
+  Local/CI Postgres must be a pgvector image (`pgvector/pgvector:pg16`); Neon/Render supply it.
+- Tenant isolation is enforced in code — AI tools are always bound to the org id from the
+  authenticated membership, never from model output.
+- The AI queue auto-pauses/resumes on Anthropic `429`/`529` via `worker.rateLimit()` — do not
+  replace this with a fail-fast; dropped questions are the failure mode to avoid.
 
 ## Conventions
 

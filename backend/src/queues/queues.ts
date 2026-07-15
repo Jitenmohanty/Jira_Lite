@@ -5,6 +5,8 @@ import { bullConnection } from './connection';
 export const QUEUE = {
   email: 'email',
   scheduler: 'scheduler',
+  embedding: 'embedding',
+  ai: 'ai',
 } as const;
 
 export type EmailTemplate =
@@ -38,9 +40,66 @@ export function enqueueEmail(data: EmailJobData) {
   return emailQueue.add(`email:${data.template}`, data);
 }
 
+/* --------------------------------------------------------- embedding queue */
+
+export interface EmbeddingJobData {
+  issueId: string;
+}
+
+export const embeddingQueue = new Queue<EmbeddingJobData>(QUEUE.embedding, {
+  connection: bullConnection,
+  defaultJobOptions,
+});
+
+/**
+ * (Re)compute an issue's semantic embedding. De-duped by job id so a burst of
+ * edits to the same issue collapses to one pending job.
+ */
+export function enqueueEmbedding(issueId: string) {
+  return embeddingQueue.add(
+    'embedding:issue',
+    { issueId },
+    { jobId: `issue:${issueId}` },
+  );
+}
+
+/* ---------------------------------------------------------------- ai queue */
+
+export interface AiJobData {
+  orgId: string;
+  userId: string;
+  question: string;
+}
+
+export interface AiJobResult {
+  answer: string;
+  citations: { identifier: string; issueId: string; projectId: string; title: string }[];
+}
+
+/**
+ * The AI queue leans on BullMQ's backoff + queue-level rate limiting to survive
+ * Anthropic rate limits with no human intervention: the worker pauses the queue
+ * for the provider's `retry-after` and BullMQ auto-resumes the same job later.
+ * Attempts are generous so a transient 429/529 never drops a question.
+ */
+export const aiQueue = new Queue<AiJobData, AiJobResult>(QUEUE.ai, {
+  connection: bullConnection,
+  defaultJobOptions: {
+    attempts: 8,
+    backoff: { type: 'exponential', delay: 4000 },
+    // Keep finished jobs briefly so the client can poll for the result.
+    removeOnComplete: { age: 3600, count: 500 },
+    removeOnFail: { age: 3600, count: 500 },
+  },
+});
+
+export function enqueueAiQuestion(data: AiJobData) {
+  return aiQueue.add('ai:ask', data);
+}
+
 /* --------------------------------------------------------- scheduler queue */
 
-export type ScheduledTask = 'activity-digest' | 'token-cleanup';
+export type ScheduledTask = 'activity-digest' | 'token-cleanup' | 'embed-backfill';
 
 export interface SchedulerJobData {
   task: ScheduledTask;

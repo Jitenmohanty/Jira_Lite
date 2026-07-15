@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   uuid,
   varchar,
+  vector,
 } from 'drizzle-orm/pg-core';
 
 /* ------------------------------------------------------------------ enums */
@@ -210,6 +211,34 @@ export const notifications = pgTable(
   (t) => [index('notifications_user_id_idx').on(t.userId)],
 );
 
+/**
+ * Vector index for the "Ask Tracer" assistant. One row per issue, holding a
+ * 384-dim embedding of its title + description + comments (all-MiniLM-L6-v2,
+ * computed locally — see modules/ai/embeddings). `orgId` is denormalized so
+ * semantic search can filter by tenant without a join, and `contentHash` lets
+ * the embedding worker skip issues whose text hasn't changed.
+ */
+export const issueEmbeddings = pgTable(
+  'issue_embeddings',
+  {
+    issueId: uuid('issue_id')
+      .primaryKey()
+      .references(() => issues.id, { onDelete: 'cascade' }),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    contentHash: varchar('content_hash', { length: 64 }).notNull(),
+    embedding: vector('embedding', { dimensions: 384 }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('issue_embeddings_org_id_idx').on(t.orgId),
+    // Approximate-nearest-neighbour index for cosine distance (`<=>`).
+    index('issue_embeddings_vec_idx').using('hnsw', t.embedding.op('vector_cosine_ops')),
+  ],
+);
+
 /* --------------------------------------------------------------- relations */
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -282,6 +311,7 @@ export type Comment = typeof comments.$inferSelect;
 export type Activity = typeof activity.$inferSelect;
 export type AuthToken = typeof authTokens.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type IssueEmbedding = typeof issueEmbeddings.$inferSelect;
 
 export type Role = (typeof roleEnum.enumValues)[number];
 export type IssueStatus = (typeof issueStatusEnum.enumValues)[number];

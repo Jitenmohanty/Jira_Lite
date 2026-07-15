@@ -40,6 +40,20 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().default('http://localhost:4000/auth/google/callback'),
+
+  // "Ask Tracer" AI assistant (optional). When ANTHROPIC_API_KEY is set the
+  // feature is enabled; otherwise the endpoints report the feature as disabled.
+  // Get a key at console.anthropic.com. Semantic search uses a local embedding
+  // model (no key required), so retrieval works even before the LLM is wired.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  // Default to the most capable Opus tier; override to trade cost for latency.
+  AI_MODEL: z.string().default('claude-opus-4-8'),
+  // Hard ceilings so a single question can never run away on cost.
+  AI_MAX_TOKENS: z.coerce.number().int().positive().default(1024),
+  AI_MAX_TOOL_ITERATIONS: z.coerce.number().int().positive().default(6),
+  // Per-user question budget (Redis-backed), per window.
+  AI_RATE_LIMIT: z.coerce.number().int().positive().default(20),
+  AI_RATE_WINDOW_MS: z.coerce.number().int().positive().default(60 * 60 * 1000),
 });
 
 const parsed = envSchema.safeParse(process.env);

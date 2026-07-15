@@ -3,6 +3,7 @@ import { db } from '../../db/client';
 import { comments, issues, users } from '../../db/schema';
 import { notFound } from '../../lib/http-errors';
 import { recordActivity } from '../../lib/activity';
+import { enqueueEmbedding } from '../../queues/queues';
 import type { CreateCommentInput } from './comments.schemas';
 
 export async function listComments(issueId: string) {
@@ -20,7 +21,7 @@ export async function createComment(actorId: string, issueId: string, input: Cre
   });
   if (!issue) throw notFound('Issue not found');
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [comment] = await tx
       .insert(comments)
       .values({ issueId, authorId: actorId, body: input.body })
@@ -43,4 +44,8 @@ export async function createComment(actorId: string, issueId: string, input: Cre
     });
     return { ...comment, author };
   });
+
+  // A new comment changes the issue's searchable text — re-index it.
+  void enqueueEmbedding(issueId).catch(() => {});
+  return result;
 }

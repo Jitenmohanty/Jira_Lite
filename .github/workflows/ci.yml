@@ -20,7 +20,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        # pgvector image (superset of postgres:16) so the CREATE EXTENSION vector
+        # migration for semantic search succeeds in CI.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
