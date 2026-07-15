@@ -17,6 +17,15 @@ export interface AskResult {
 }
 
 /**
+ * Whether an answer references an issue identifier, matched on a word boundary
+ * so "TRC-1" is not falsely detected inside "TRC-10".
+ */
+export function isCited(answer: string, identifier: string): boolean {
+  const esc = identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${esc}\\b`).test(answer);
+}
+
+/**
  * Guardrail system prompt. Two things matter most here:
  *  1. Retrieved issue text is DATA, not instructions — the model is told not to
  *     obey anything embedded in it (prompt-injection defence).
@@ -120,7 +129,8 @@ export async function askTracer(orgId: string, question: string): Promise<AskRes
 
   const finalize = (text: string | undefined): AskResult => {
     const answer = (text ?? '').trim();
-    const citations = [...seen.values()].filter((c) => answer.includes(c.identifier));
+    // Cite only issues the answer references by identifier.
+    const citations = [...seen.values()].filter((c) => isCited(answer, c.identifier));
     return {
       answer: answer || "I couldn't find anything relevant in this organization.",
       citations,

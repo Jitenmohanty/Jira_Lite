@@ -34,6 +34,12 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().default('Tracer <no-reply@tracer.dev>'),
 
+  // Resend (https://resend.com) — preferred email transport when set; takes
+  // precedence over SMTP. `from` must use a Resend-verified domain, or
+  // `onboarding@resend.dev` for testing (which only delivers to your own
+  // Resend account address). Get a key at resend.com/api-keys.
+  RESEND_API_KEY: z.string().optional(),
+
   // Google OAuth (optional). When both ID and secret are set, "Continue with
   // Google" is enabled. Create credentials at console.cloud.google.com and set
   // the redirect URI to <this API>/auth/google/callback.

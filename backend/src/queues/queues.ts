@@ -56,11 +56,9 @@ export const embeddingQueue = new Queue<EmbeddingJobData>(QUEUE.embedding, {
  * edits to the same issue collapses to one pending job.
  */
 export function enqueueEmbedding(issueId: string) {
-  return embeddingQueue.add(
-    'embedding:issue',
-    { issueId },
-    { jobId: `issue:${issueId}` },
-  );
+  // De-dupe by job id so a burst of edits to one issue collapses to a single
+  // pending job. BullMQ job ids must not contain ':' — use a dash-joined id.
+  return embeddingQueue.add('embedding-issue', { issueId }, { jobId: `emb-${issueId}` });
 }
 
 /* ---------------------------------------------------------------- ai queue */

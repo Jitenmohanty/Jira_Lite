@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { isCited } from './ai.service';
 import { contentHash, toVectorLiteral } from './embeddings';
 import { isFatalClientError, isRateLimited, retryAfterMs } from './provider-errors';
+
+describe('isCited (citation matching)', () => {
+  it('matches whole identifiers, not substrings', () => {
+    expect(isCited('See TRC-10 for the fix.', 'TRC-10')).toBe(true);
+    // "TRC-1" must NOT match inside "TRC-10"
+    expect(isCited('See TRC-10 for the fix.', 'TRC-1')).toBe(false);
+    expect(isCited('Both TRC-1 and TRC-10 apply.', 'TRC-1')).toBe(true);
+    expect(isCited('Nothing relevant.', 'TRC-3')).toBe(false);
+  });
+});
 
 describe('embeddings helpers', () => {
   it('contentHash is stable and content-sensitive', () => {

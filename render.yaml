@@ -104,3 +104,6 @@ services:
       # The worker runs the "Ask Tracer" agent, so it needs the Gemini key.
       - key: GEMINI_API_KEY
         sync: false
+      # The worker sends email; set RESEND_API_KEY for Resend delivery.
+      - key: RESEND_API_KEY
+        sync: false

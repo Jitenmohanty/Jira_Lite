@@ -65,7 +65,7 @@ optimistic UI, and clean full-stack architecture.
 | Backend    | Node.js, Express 5, TypeScript, Zod                                            |
 | Auth       | JWT (HTTP-only cookie) + Google OAuth2, bcrypt, tokenized email verify / reset |
 | Data       | PostgreSQL via **Drizzle ORM** + migrations                                    |
-| Async      | **Redis + BullMQ** queues & workers, repeatable (cron) jobs, Nodemailer email  |
+| Async      | **Redis + BullMQ** queues & workers, repeatable (cron) jobs, email via **Resend** (SMTP/Nodemailer fallback) |
 | AI         | Gemini (`@google/genai`) function-calling agent; **pgvector** semantic search; local `all-MiniLM-L6-v2` embeddings (transformers.js) |
 | Hardening  | Helmet, Redis-backed rate limiting, pino structured logging                    |
 | Infra      | Docker Compose (Postgres + Redis + API + worker + web)                         |
