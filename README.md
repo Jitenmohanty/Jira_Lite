@@ -412,3 +412,57 @@ Interactive docs (Swagger UI) at **`/docs`**; the raw OpenAPI spec at **`/openap
 | Activity      | `GET /orgs/:id/activity`                                                         |
 | Insights      | `GET /orgs/:id/insights`                                                        |
 | Notifications | `GET /notifications` · `POST /notifications/read-all` · `PATCH /notifications/:id/read` |
+| AI            | `GET /orgs/:id/ai` · `POST /orgs/:id/ai/ask` · `GET /orgs/:id/ai/ask/:jobId`     |
+| API keys      | `GET/POST /orgs/:id/api-keys` · `DELETE /orgs/:id/api-keys/:keyId`               |
+| Webhooks      | `GET/POST /orgs/:id/webhooks` · `PATCH/DELETE /orgs/:id/webhooks/:id` · `GET …/deliveries` · `POST …/ping` |
+
+## Using the API & webhooks
+
+**Programmatic access with an API key.** Create a key under **Developer** settings, then send it as
+a bearer token — no cookie or CSRF token required. The key is scoped to its organization.
+
+```bash
+# List your org's issues matching a query
+curl https://<api>/orgs/$ORG_ID/issues/search?q=login \
+  -H "Authorization: Bearer trc_your_key_here"
+
+# Create an issue programmatically (no CSRF token needed for bearer auth)
+curl -X POST https://<api>/projects/$PROJECT_ID/issues \
+  -H "Authorization: Bearer trc_your_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Filed via API","priority":"high"}'
+```
+
+**Receiving webhooks.** Each delivery is a POST with an HMAC-SHA256 signature over
+`timestamp.body`. Verify it with the signing secret shown when you created the webhook — comparing
+in constant time and rejecting stale timestamps:
+
+```js
+import express from 'express';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+const SECRET = process.env.TRACER_WEBHOOK_SECRET;
+const app = express();
+
+// Capture the raw body — the signature is over the exact bytes we received.
+app.use(express.raw({ type: 'application/json' }));
+
+app.post('/webhooks/tracer', (req, res) => {
+  const ts = req.get('X-Tracer-Timestamp');
+  const sig = req.get('X-Tracer-Signature') ?? '';
+  // Reject replays older than 5 minutes.
+  if (!ts || Math.abs(Date.now() / 1000 - Number(ts)) > 300) return res.sendStatus(400);
+
+  const expected = 'sha256=' + createHmac('sha256', SECRET).update(`${ts}.${req.body}`).digest('hex');
+  const a = Buffer.from(sig), b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return res.sendStatus(401);
+
+  const { event, data } = JSON.parse(req.body.toString());
+  console.log(`event: ${event}`, data); // e.g. issue.status_changed
+  res.sendStatus(200); // 2xx = delivered; non-2xx triggers a retry
+});
+```
+
+Delivery headers: `X-Tracer-Event`, `X-Tracer-Delivery` (id), `X-Tracer-Timestamp`,
+`X-Tracer-Signature`. Failed deliveries retry with exponential backoff; inspect them under the
+webhook's **deliveries** log.
