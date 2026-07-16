@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { CookieOptions, RequestHandler, Response } from 'express';
 import { isProd } from '../config/env';
 import { forbidden } from './http-errors';
@@ -28,12 +28,19 @@ export function issueCsrfToken(res: Response, existing?: string): string {
   return token;
 }
 
+/** Constant-time string equality (avoids a token-comparison timing oracle). */
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
 /** Rejects mutating requests whose header doesn't match the CSRF cookie. */
 export const csrfProtection: RequestHandler = (req, _res, next) => {
   if (SAFE_METHODS.has(req.method)) return next();
   const cookie = req.cookies?.[CSRF_COOKIE] as string | undefined;
   const header = req.get(CSRF_HEADER);
-  if (!cookie || !header || cookie !== header) {
+  if (!cookie || !header || !safeEqual(cookie, header)) {
     throw forbidden('Invalid or missing CSRF token');
   }
   next();

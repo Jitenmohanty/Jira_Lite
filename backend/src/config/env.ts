@@ -74,3 +74,22 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 export const isProd = env.NODE_ENV === 'production';
+
+/**
+ * Fail closed in production on insecure defaults. The dev fallbacks satisfy the
+ * schema (so local dev boots with zero config), but shipping them to production
+ * would mean a publicly-known JWT signing key (→ token forgery / account
+ * takeover) or a wide-open CORS origin. Refuse to boot instead.
+ */
+const INSECURE_JWT_DEFAULT = 'dev-insecure-secret-change-me-please';
+if (isProd) {
+  const problems: string[] = [];
+  if (env.JWT_SECRET === INSECURE_JWT_DEFAULT) problems.push('JWT_SECRET is unset/using the public dev default');
+  if (env.JWT_SECRET.length < 32) problems.push('JWT_SECRET must be at least 32 characters in production');
+  if (env.CORS_ORIGIN === 'http://localhost:3000') problems.push('CORS_ORIGIN is still the localhost default');
+  if (problems.length) {
+    console.error('❌ Refusing to start in production with insecure configuration:');
+    for (const p of problems) console.error(`   - ${p}`);
+    process.exit(1);
+  }
+}

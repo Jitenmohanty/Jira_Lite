@@ -54,7 +54,7 @@ export function createApp(): Express {
       credentials: true,
     }),
   );
-  app.use(express.json());
+  app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
 
   // Liveness: process is up.
@@ -72,9 +72,12 @@ export function createApp(): Express {
     }
   });
 
-  // API documentation (public): raw spec + Swagger UI.
-  app.get('/openapi.json', (_req, res) => res.json(openapiSpec));
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec, { customSiteTitle: 'Tracer API' }));
+  // API documentation — exposed in non-production only (no need to publish the
+  // full endpoint surface to the internet in prod).
+  if (!isProd) {
+    app.get('/openapi.json', (_req, res) => res.json(openapiSpec));
+    app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec, { customSiteTitle: 'Tracer API' }));
+  }
 
   // Feature routers. All except /auth require authentication + CSRF on mutations.
   // Auth endpoints are rate-limited against brute force.

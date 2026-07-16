@@ -64,6 +64,12 @@ export async function exchangeGoogleCode(code: string): Promise<GoogleProfile> {
   if (!userRes.ok) throw badRequest('Failed to fetch Google profile');
   const profile = (await userRes.json()) as GoogleProfile;
   if (!profile.email) throw badRequest('Google profile has no email');
+  // Only trust the email if Google says it's verified — otherwise an unverified
+  // Google email matching a victim's registered address could hijack that
+  // password account via the link-by-email path below.
+  if (profile.email_verified !== true) {
+    throw badRequest('Your Google account email is not verified');
+  }
   return profile;
 }
 

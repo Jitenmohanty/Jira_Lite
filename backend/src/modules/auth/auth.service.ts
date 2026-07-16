@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { users, type User } from '../../db/schema';
-import { hashPassword, verifyPassword } from '../../lib/password';
+import { hashPassword, verifyPassword, verifyPasswordDummy } from '../../lib/password';
 import { conflict, unauthorized } from '../../lib/http-errors';
 import { sendVerificationEmail } from './verification.service';
 import type { LoginInput, SignupInput } from './auth.schemas';
@@ -43,9 +43,14 @@ export async function signup(input: SignupInput): Promise<PublicUser> {
 
 export async function login(input: LoginInput): Promise<PublicUser> {
   const user = await db.query.users.findFirst({ where: eq(users.email, input.email) });
-  // Constant-ish message regardless of which half failed, to avoid leaking
-  // which emails are registered (or that an account is Google-only).
-  if (!user || !user.passwordHash || !(await verifyPassword(input.password, user.passwordHash))) {
+  // Uniform message AND uniform timing: when there's no user or no password
+  // hash (e.g. a Google-only account), still burn a bcrypt comparison so the
+  // response time doesn't reveal whether the email is registered.
+  if (!user || !user.passwordHash) {
+    await verifyPasswordDummy(input.password);
+    throw unauthorized('Invalid email or password');
+  }
+  if (!(await verifyPassword(input.password, user.passwordHash))) {
     throw unauthorized('Invalid email or password');
   }
   return toPublicUser(user);
