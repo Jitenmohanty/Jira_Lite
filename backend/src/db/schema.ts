@@ -212,6 +212,78 @@ export const notifications = pgTable(
 );
 
 /**
+ * Scoped API keys for programmatic access. Only a SHA-256 hash of the key is
+ * stored; the raw key (shown once at creation) is `trc_<random>`. `prefix` is a
+ * short, non-secret slice shown in the UI to identify a key. A key acts as its
+ * creating user, but is pinned to `orgId` — requests authenticated by the key
+ * can only touch that organization.
+ */
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 120 }).notNull(),
+    prefix: varchar('prefix', { length: 16 }).notNull(),
+    keyHash: text('key_hash').notNull(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('api_keys_org_id_idx').on(t.orgId),
+    index('api_keys_hash_idx').on(t.keyHash),
+  ],
+);
+
+/**
+ * Outbound webhooks: an org registers a URL to receive HMAC-signed POSTs when
+ * subscribed events occur. `secret` (shown once) signs each delivery. `events`
+ * holds the subscribed event names (e.g. issue.created).
+ */
+export const webhooks = pgTable(
+  'webhooks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    url: text('url').notNull(),
+    secret: text('secret').notNull(),
+    events: jsonb('events').$type<string[]>().notNull().default([]),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('webhooks_org_id_idx').on(t.orgId)],
+);
+
+/** Delivery log — one row per attempt-set for auditing/debugging webhooks. */
+export const webhookDeliveries = pgTable(
+  'webhook_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    webhookId: uuid('webhook_id')
+      .notNull()
+      .references(() => webhooks.id, { onDelete: 'cascade' }),
+    event: varchar('event', { length: 60 }).notNull(),
+    // pending | success | failed
+    status: varchar('status', { length: 20 }).notNull().default('pending'),
+    statusCode: integer('status_code'),
+    attempts: integer('attempts').notNull().default(0),
+    error: text('error'),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  },
+  (t) => [index('webhook_deliveries_webhook_id_idx').on(t.webhookId)],
+);
+
+/**
  * Vector index for the "Ask Tracer" assistant. One row per issue, holding a
  * 384-dim embedding of its title + description + comments (all-MiniLM-L6-v2,
  * computed locally — see modules/ai/embeddings). `orgId` is denormalized so
@@ -312,6 +384,9 @@ export type Activity = typeof activity.$inferSelect;
 export type AuthToken = typeof authTokens.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type IssueEmbedding = typeof issueEmbeddings.$inferSelect;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type Webhook = typeof webhooks.$inferSelect;
+export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
 
 export type Role = (typeof roleEnum.enumValues)[number];
 export type IssueStatus = (typeof issueStatusEnum.enumValues)[number];

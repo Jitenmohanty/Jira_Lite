@@ -29,6 +29,12 @@ export function requireRole(minRole: Role, resolveOrgId: OrgResolver = orgIdFrom
     const orgId = await resolveOrgId(req);
     if (!orgId) throw forbidden('Organization context is required');
 
+    // An API key is pinned to one org — reject any attempt to use it against a
+    // different org, even if the owning user is a member of that other org.
+    if (req.auth?.via === 'apikey' && req.auth.orgId !== orgId) {
+      throw forbidden('This API key is scoped to a different organization');
+    }
+
     const membership = await db.query.memberships.findFirst({
       where: and(eq(memberships.userId, req.user.id), eq(memberships.orgId, orgId)),
       columns: { role: true, orgId: true },

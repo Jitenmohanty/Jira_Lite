@@ -7,6 +7,7 @@ export const QUEUE = {
   scheduler: 'scheduler',
   embedding: 'embedding',
   ai: 'ai',
+  webhook: 'webhook',
 } as const;
 
 export type EmailTemplate =
@@ -93,6 +94,31 @@ export const aiQueue = new Queue<AiJobData, AiJobResult>(QUEUE.ai, {
 
 export function enqueueAiQuestion(data: AiJobData) {
   return aiQueue.add('ai:ask', data);
+}
+
+/* --------------------------------------------------------- webhook queue */
+
+export interface WebhookJobData {
+  deliveryId: string;
+}
+
+/**
+ * Webhook deliveries retry with exponential backoff so a receiver that's
+ * briefly down doesn't lose events. Each attempt is recorded on the delivery
+ * row; the worker records terminal failure after attempts are exhausted.
+ */
+export const webhookQueue = new Queue<WebhookJobData>(QUEUE.webhook, {
+  connection: bullConnection,
+  defaultJobOptions: {
+    attempts: 5,
+    backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: 1000,
+    removeOnFail: 1000,
+  },
+});
+
+export function enqueueWebhookDelivery(deliveryId: string) {
+  return webhookQueue.add('webhook:deliver', { deliveryId });
 }
 
 /* --------------------------------------------------------- scheduler queue */

@@ -35,11 +35,13 @@ src/
 ├── config/env.ts     # Zod-validated environment config
 ├── db/               # drizzle schema, client, migrate + seed (Stage 1)
 ├── middleware/       # requireAuth, requireRole, error handler (Stage 2)
-├── modules/          # feature routers: auth, orgs, projects, issues, comments, ai
-│   └── ai/           # "Ask Tracer": local embeddings, pgvector retrieval, Gemini agent + guardrails
-├── queues/           # BullMQ queues (email, scheduler, embedding, ai) + cron registration
-├── workers/          # queue consumers (email, scheduler, embedding, ai) — run via `npm run worker`
-└── lib/              # shared helpers (jwt, password, http errors)
+├── modules/          # feature routers: auth, orgs, projects, issues, comments, ai, api-keys, webhooks
+│   ├── ai/           # "Ask Tracer": local embeddings, pgvector retrieval, Gemini agent + guardrails
+│   ├── api-keys/     # scoped bearer keys for programmatic access
+│   └── webhooks/     # outbound HMAC-signed event delivery + delivery log
+├── queues/           # BullMQ queues (email, scheduler, embedding, ai, webhook) + cron registration
+├── workers/          # queue consumers (email, scheduler, embedding, ai, webhook) — run via `npm run worker`
+└── lib/              # shared helpers (jwt, password, csrf, api-key, ssrf, webhook-signature)
 ```
 
 ## AI assistant ("Ask Tracer")
@@ -51,6 +53,17 @@ src/
   authenticated membership, never from model output.
 - The AI queue auto-pauses/resumes on Gemini `429`/`503` via `worker.rateLimit()` — do not
   replace this with a fail-fast; dropped questions are the failure mode to avoid.
+
+## Developer platform (API keys + webhooks)
+
+- API keys authenticate via `Authorization: Bearer trc_…` in `requireAuth`; only the SHA-256 hash
+  is stored. A key is **org-pinned** — `requireRole` rejects use against any other org. Bearer
+  requests bypass CSRF by design (no ambient cookie).
+- **Webhook URLs are an SSRF sink.** Never fetch one without `assertPublicUrl` (lib/ssrf.ts). It
+  runs at create AND delivery time (DNS-rebinding). Do not weaken it; the dev-only
+  `WEBHOOK_ALLOW_LOOPBACK` flag is force-disabled in prod.
+- Webhook deliveries are HMAC-SHA256 signed (`X-Tracer-Signature`), delivered via the `webhook`
+  queue with retries, and never follow redirects.
 
 ## Conventions
 

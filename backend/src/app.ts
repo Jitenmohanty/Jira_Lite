@@ -19,6 +19,8 @@ import { commentsRouter } from './modules/comments/comments.routes';
 import { activityRouter } from './modules/activity/activity.routes';
 import { insightsRouter } from './modules/insights/insights.routes';
 import { aiRouter } from './modules/ai/ai.routes';
+import { apiKeysRouter } from './modules/api-keys/api-keys.routes';
+import { webhooksRouter } from './modules/webhooks/webhooks.routes';
 import { notificationsRouter } from './modules/notifications/notifications.routes';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 
@@ -87,6 +89,8 @@ export function createApp(): Express {
   app.use('/orgs/:orgId/activity', requireAuth, csrfProtection, activityRouter);
   app.use('/orgs/:orgId/insights', requireAuth, csrfProtection, insightsRouter);
   app.use('/orgs/:orgId/ai', requireAuth, csrfProtection, aiRouter);
+  app.use('/orgs/:orgId/api-keys', requireAuth, csrfProtection, apiKeysRouter);
+  app.use('/orgs/:orgId/webhooks', requireAuth, csrfProtection, webhooksRouter);
   app.use('/orgs/:orgId/issues', requireAuth, csrfProtection, orgIssuesRouter);
   app.use('/projects/:projectId/issues', requireAuth, csrfProtection, projectIssuesRouter);
   app.use('/issues', requireAuth, csrfProtection, issuesRouter);

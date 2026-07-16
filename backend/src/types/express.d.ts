@@ -15,11 +15,19 @@ export interface AuthMembership {
   role: Role;
 }
 
+/** How the request authenticated, set by `requireAuth`. */
+export interface AuthContext {
+  via: 'cookie' | 'apikey';
+  /** For API keys: the org the key is pinned to (requests can't escape it). */
+  orgId?: string;
+}
+
 declare global {
   namespace Express {
     interface Request {
       user?: AuthUser;
       membership?: AuthMembership;
+      auth?: AuthContext;
     }
   }
 }

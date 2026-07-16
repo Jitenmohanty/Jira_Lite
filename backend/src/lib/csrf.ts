@@ -38,6 +38,9 @@ function safeEqual(a: string, b: string): boolean {
 /** Rejects mutating requests whose header doesn't match the CSRF cookie. */
 export const csrfProtection: RequestHandler = (req, _res, next) => {
   if (SAFE_METHODS.has(req.method)) return next();
+  // API-key requests use a bearer token, not an ambient cookie, so they aren't
+  // exposed to CSRF — the double-submit check doesn't apply.
+  if (req.auth?.via === 'apikey') return next();
   const cookie = req.cookies?.[CSRF_COOKIE] as string | undefined;
   const header = req.get(CSRF_HEADER);
   if (!cookie || !header || !safeEqual(cookie, header)) {

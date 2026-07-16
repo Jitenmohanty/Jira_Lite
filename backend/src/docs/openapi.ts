@@ -21,6 +21,8 @@ export const openapiSpec = {
     { name: 'Comments' },
     { name: 'Notifications' },
     { name: 'AI' },
+    { name: 'API Keys' },
+    { name: 'Webhooks' },
   ],
   components: {
     securitySchemes: {
@@ -296,6 +298,39 @@ export const openapiSpec = {
           'status is working | retrying (auto-resuming after a provider rate limit) | completed | failed. On completed, result = { answer, citations }.',
         responses: { '200': { description: 'Job status + result' }, '404': { description: 'Not found' } },
       },
+    },
+    '/orgs/{orgId}/api-keys': {
+      get: { tags: ['API Keys'], summary: 'List API keys (admin+, metadata only)', responses: { '200': { description: 'OK' } } },
+      post: {
+        tags: ['API Keys'],
+        summary: 'Create an API key (admin+)',
+        description:
+          'Returns the raw key ONCE as apiKey.key. Use it as `Authorization: Bearer <key>` for programmatic access — the key acts as its creator, pinned to this org.',
+        responses: { '201': { description: '{ apiKey } incl. one-time key' } },
+      },
+    },
+    '/orgs/{orgId}/api-keys/{keyId}': {
+      delete: { tags: ['API Keys'], summary: 'Revoke an API key (admin+)', responses: { '204': { description: 'Revoked' } } },
+    },
+    '/orgs/{orgId}/webhooks': {
+      get: { tags: ['Webhooks'], summary: 'List webhooks (admin+)', responses: { '200': { description: 'OK' } } },
+      post: {
+        tags: ['Webhooks'],
+        summary: 'Create a webhook (admin+)',
+        description:
+          'Registers an https URL to receive HMAC-signed POSTs on subscribed events. Returns the signing secret ONCE. URLs resolving to private/loopback/metadata addresses are rejected (SSRF guard).',
+        responses: { '201': { description: '{ webhook } incl. one-time secret' }, '400': { description: 'Invalid or non-public URL' } },
+      },
+    },
+    '/orgs/{orgId}/webhooks/{webhookId}': {
+      patch: { tags: ['Webhooks'], summary: 'Update a webhook (admin+)', responses: { '200': { description: 'OK' } } },
+      delete: { tags: ['Webhooks'], summary: 'Delete a webhook (admin+)', responses: { '204': { description: 'Deleted' } } },
+    },
+    '/orgs/{orgId}/webhooks/{webhookId}/deliveries': {
+      get: { tags: ['Webhooks'], summary: 'Recent delivery log (admin+)', responses: { '200': { description: 'OK' } } },
+    },
+    '/orgs/{orgId}/webhooks/{webhookId}/ping': {
+      post: { tags: ['Webhooks'], summary: 'Send a test delivery (admin+)', responses: { '202': { description: 'Queued' } } },
     },
   },
 } as const;

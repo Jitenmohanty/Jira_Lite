@@ -17,6 +17,13 @@ const envSchema = z.object({
   // Redis (BullMQ queues + workers).
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
+  // Dev-only: permit webhooks to target loopback (localhost / 127.0.0.1) so a
+  // developer can test against a local receiver without a tunnel. IGNORED in
+  // production — the SSRF guard always blocks loopback there.
+  WEBHOOK_ALLOW_LOOPBACK: z
+    .preprocess((v) => v === 'true' || v === true, z.boolean())
+    .default(false),
+
   // Public base URL of the frontend, used to build links in emails.
   APP_URL: z.string().default('http://localhost:3000'),
 

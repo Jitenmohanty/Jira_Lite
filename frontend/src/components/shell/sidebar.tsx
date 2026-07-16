@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, BarChart3, Layers, Plus, Settings } from 'lucide-react';
+import { Activity, BarChart3, Code2, Layers, Plus, Settings } from 'lucide-react';
 import { useActiveOrg } from '@/hooks/use-active-org';
 import { useProjects } from '@/hooks/use-projects';
 import { useUIStore } from '@/stores/ui-store';
@@ -66,6 +66,13 @@ export function Sidebar() {
           active={pathname === '/app/members'}
         >
           Members
+        </NavLink>
+        <NavLink
+          href="/app/developer"
+          icon={<Code2 size={15} />}
+          active={pathname === '/app/developer'}
+        >
+          Developer
         </NavLink>
       </div>
 

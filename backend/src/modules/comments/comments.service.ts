@@ -4,6 +4,7 @@ import { comments, issues, users } from '../../db/schema';
 import { notFound } from '../../lib/http-errors';
 import { recordActivity } from '../../lib/activity';
 import { enqueueEmbedding } from '../../queues/queues';
+import { dispatchWebhookEvent } from '../webhooks/webhooks.service';
 import type { CreateCommentInput } from './comments.schemas';
 
 export async function listComments(issueId: string) {
@@ -47,5 +48,11 @@ export async function createComment(actorId: string, issueId: string, input: Cre
 
   // A new comment changes the issue's searchable text — re-index it.
   void enqueueEmbedding(issueId).catch(() => {});
+  void dispatchWebhookEvent(issue.project.orgId, 'comment.created', {
+    commentId: result.id,
+    issueId,
+    authorId: actorId,
+    body: result.body,
+  }).catch(() => {});
   return result;
 }

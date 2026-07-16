@@ -6,6 +6,7 @@ import { recordActivity } from '../../lib/activity';
 import type { Executor } from '../../lib/activity';
 import { emitIssueChanged } from '../../realtime/emit';
 import { enqueueEmbedding } from '../../queues/queues';
+import { dispatchWebhookEvent } from '../webhooks/webhooks.service';
 import { notifyIssueAssigned } from '../notifications/notifications.service';
 import type { CreateIssueInput, ListIssuesQuery, UpdateIssueInput } from './issues.schemas';
 
@@ -20,6 +21,27 @@ async function assertMember(exec: Executor, orgId: string, userId: string) {
 }
 
 const identifier = (key: string, num: number) => `${key}-${num}`;
+
+/** Trimmed issue shape sent in webhook payloads. */
+function webhookPayload(issue: {
+  id: string;
+  identifier: string;
+  title: string;
+  status: string;
+  priority: string;
+  projectId: string;
+  assigneeId: string | null;
+}) {
+  return {
+    id: issue.id,
+    identifier: issue.identifier,
+    title: issue.title,
+    status: issue.status,
+    priority: issue.priority,
+    projectId: issue.projectId,
+    assigneeId: issue.assigneeId,
+  };
+}
 
 /**
  * Creates an issue with a per-project sequential number that is correct under
@@ -78,6 +100,7 @@ export async function createIssue(actorId: string, projectId: string, input: Cre
 
   // Index for semantic search (fire-and-forget; the worker retries on failure).
   void enqueueEmbedding(created.id).catch(() => {});
+  void dispatchWebhookEvent(orgId, 'issue.created', webhookPayload(created)).catch(() => {});
 
   // Notify the assignee (in-app + email) after the transaction commits.
   if (created.assigneeId) {
@@ -200,6 +223,12 @@ export async function updateIssue(actorId: string, issueId: string, input: Updat
 
   emitIssueChanged(current.project.orgId, current.projectId, updated.id);
   void enqueueEmbedding(updated.id).catch(() => {});
+  const changedStatus = Boolean(input.status && input.status !== current.status);
+  void dispatchWebhookEvent(
+    current.project.orgId,
+    changedStatus ? 'issue.status_changed' : 'issue.updated',
+    webhookPayload(updated),
+  ).catch(() => {});
 
   // Notify on a genuine reassignment to a different person.
   if (updated.assigneeId && updated.assigneeId !== current.assigneeId) {
@@ -235,4 +264,10 @@ export async function deleteIssue(actorId: string, issueId: string) {
   });
 
   emitIssueChanged(current.project.orgId, current.projectId, issueId);
+  void dispatchWebhookEvent(current.project.orgId, 'issue.deleted', {
+    id: issueId,
+    identifier: identifier(current.project.key, current.issueNumber),
+    title: current.title,
+    projectId: current.projectId,
+  }).catch(() => {});
 }

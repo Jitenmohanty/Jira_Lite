@@ -4,6 +4,7 @@ import { startEmailWorker } from './email.worker';
 import { startSchedulerWorker } from './scheduler.worker';
 import { startEmbeddingWorker } from './embedding.worker';
 import { startAiWorker } from './ai.worker';
+import { startWebhookWorker } from './webhook.worker';
 import { registerRepeatableJobs } from '../queues/scheduler';
 import { triggerTask } from '../queues/queues';
 
@@ -16,6 +17,7 @@ const workers: Worker[] = [
   startSchedulerWorker(),
   startEmbeddingWorker(),
   startAiWorker(),
+  startWebhookWorker(),
 ];
 
 // Register cron/repeatable jobs (idempotent).

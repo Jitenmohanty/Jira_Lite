@@ -28,6 +28,12 @@ optimistic UI, and clean full-stack architecture.
 
 ## Features
 
+- **Developer platform — API keys + webhooks.** Scoped **API keys** (`Authorization: Bearer …`,
+  hashed at rest, shown once, org-pinned) for programmatic access, and outbound **webhooks** that
+  fire on issue/comment events — **HMAC-SHA256 signed**, delivered on a BullMQ queue with
+  exponential-backoff retries and a per-delivery log. Webhook URLs are **SSRF-guarded** (private,
+  loopback, and cloud-metadata addresses are rejected at both create and delivery time). See
+  [Developer platform](#developer-platform--api-keys--webhooks) below.
 - **"Ask Tracer" AI assistant** — a guardrailed, **RAG-powered agent** that answers natural-language
   questions about your issues ("what's blocking the release?", "who has the most open work?").
   Semantic search over **pgvector** embeddings (computed **locally**, no per-query cost) feeds a
@@ -67,6 +73,7 @@ optimistic UI, and clean full-stack architecture.
 | Data       | PostgreSQL via **Drizzle ORM** + migrations                                    |
 | Async      | **Redis + BullMQ** queues & workers, repeatable (cron) jobs, email via **Resend** (SMTP/Nodemailer fallback) |
 | AI         | Gemini (`@google/genai`) function-calling agent; **pgvector** semantic search; local `all-MiniLM-L6-v2` embeddings (transformers.js) |
+| Platform   | Scoped **API keys** (bearer auth); **HMAC-signed webhooks** with queued retries + delivery log; SSRF-guarded egress |
 | Hardening  | Helmet, Redis-backed rate limiting, pino structured logging                    |
 | Infra      | Docker Compose (Postgres + Redis + API + worker + web)                         |
 
@@ -213,6 +220,29 @@ flowchart LR
   attempt.
 - **Optional & degrades gracefully.** The feature is gated on `GEMINI_API_KEY` (free from Google AI
   Studio); without it the UI hides the panel. Semantic search itself needs no key.
+
+### Developer platform — API keys + webhooks
+
+Turns Tracer from an app into something you can integrate with.
+
+- **API keys.** Admins mint scoped keys under **Developer** settings. Only a SHA-256 **hash** is
+  stored; the raw `trc_…` key is shown once. `requireAuth` accepts `Authorization: Bearer <key>` as
+  an alternative to the session cookie — the key acts as its creating user but is **pinned to one
+  org** (`requireRole` rejects any attempt to use it against another org, even if the owner belongs
+  to that org). Bearer requests are **exempt from CSRF** (no ambient cookie to forge); revoked keys
+  are refused.
+- **Webhooks.** Admins register an HTTPS URL and subscribe to events (`issue.created`,
+  `issue.status_changed`, …). On each event the issue/comment services **dispatch** to matching
+  webhooks: a `webhook_deliveries` row is written and a BullMQ job enqueued. The worker POSTs the
+  payload with an **`X-Tracer-Signature: sha256=…` HMAC** over `timestamp.body`, follows no
+  redirects, and records status/attempts. Failed deliveries retry with exponential backoff; the log
+  is visible in the UI, and a **Send test** button fires a `ping`.
+- **SSRF guard.** Webhook URLs are user-supplied and fetched server-side — a classic SSRF sink. The
+  guard allows only http/https (https in prod), resolves the host, and **rejects any private,
+  loopback, link-local, CGNAT, or cloud-metadata (`169.254.169.254`) address** — checked at *both*
+  create time and delivery time (the latter defeats DNS-rebinding). Verified: create requests for a
+  metadata/private/non-http URL return `400`. (A dev-only `WEBHOOK_ALLOW_LOOPBACK` flag, inert in
+  production, permits `localhost` targets for local testing.)
 
 ## Domain model
 
