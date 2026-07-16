@@ -72,7 +72,7 @@ optimistic UI, and clean full-stack architecture.
 | Auth       | JWT (HTTP-only cookie) + Google OAuth2, bcrypt, tokenized email verify / reset |
 | Data       | PostgreSQL via **Drizzle ORM** + migrations                                    |
 | Async      | **Redis + BullMQ** queues & workers, repeatable (cron) jobs, email via **Resend** (SMTP/Nodemailer fallback) |
-| AI         | Gemini (`@google/genai`) function-calling agent; **pgvector** semantic search; local `all-MiniLM-L6-v2` embeddings (transformers.js) |
+| AI         | Gemini (`@google/genai`) function-calling agent; **pgvector** semantic search; local `all-MiniLM-L6-v2` embeddings (`@huggingface/transformers`) |
 | Platform   | Scoped **API keys** (bearer auth); **HMAC-signed webhooks** with queued retries + delivery log; SSRF-guarded egress |
 | Hardening  | Helmet, Redis-backed rate limiting, pino structured logging                    |
 | Infra      | Docker Compose (Postgres + Redis + API + worker + web)                         |
@@ -200,7 +200,7 @@ flowchart LR
 ```
 
 - **Indexing.** Creating or editing an issue (or comment) enqueues an **embedding job**. A worker
-  builds the issue's document, embeds it with a **local `all-MiniLM-L6-v2` model** (transformers.js
+  builds the issue's document, embeds it with a **local `all-MiniLM-L6-v2` model** (Hugging Face Transformers.js
   — no API key, no per-vector cost), and upserts a 384-dim vector into `issue_embeddings`
   (**pgvector**, HNSW index). A content hash skips re-embedding unchanged text; an hourly backfill
   catches anything missed.

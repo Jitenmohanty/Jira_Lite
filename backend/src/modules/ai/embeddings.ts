@@ -3,11 +3,16 @@ import { createHash } from 'node:crypto';
 /**
  * Local sentence-embedding model for the "Ask Tracer" assistant.
  *
- * Uses `all-MiniLM-L6-v2` via transformers.js — it runs fully in-process with
- * no external API or key, produces 384-dim vectors, and is small enough to load
- * on a worker. Keeping embeddings local means semantic search works even when
- * the LLM (which does need a key) is disabled, and it keeps recurring cost at
- * zero. The model weights are downloaded once on first use and cached on disk.
+ * Uses `all-MiniLM-L6-v2` via Hugging Face Transformers.js — it runs fully
+ * in-process with no external API or key, produces 384-dim vectors, and is
+ * small enough to load on a worker. Keeping embeddings local means semantic
+ * search works even when the LLM (which does need a key) is disabled, and it
+ * keeps recurring cost at zero. The model weights are downloaded once on first
+ * use and cached on disk.
+ *
+ * Package note: we use `@huggingface/transformers` (the maintained successor to
+ * the now-deprecated `@xenova/transformers`) — the old package pulled a
+ * vulnerable `protobufjs`/`onnxruntime` chain. The API is unchanged.
  */
 
 export const EMBEDDING_DIMENSIONS = 384;
@@ -25,7 +30,7 @@ let extractorPromise: Promise<Extractor> | null = null;
 async function getExtractor(): Promise<Extractor> {
   if (!extractorPromise) {
     extractorPromise = (async () => {
-      const { pipeline, env } = await import('@xenova/transformers');
+      const { pipeline, env } = await import('@huggingface/transformers');
       // Only use the remote hub for the first download; cache locally after.
       env.allowLocalModels = true;
       const pipe = await pipeline('feature-extraction', MODEL);
