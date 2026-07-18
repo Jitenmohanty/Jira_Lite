@@ -1,0 +1,18 @@
+{
+  "name": "tracer-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "End-to-end + API test suite for Tracer (Playwright).",
+  "scripts": {
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --project=ui",
+    "seed:dummy": "playwright test --config=seed.config.ts",
+    "report": "playwright show-report",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "ioredis": "^5.4.1"
+  }
+}
