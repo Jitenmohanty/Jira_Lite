@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures';
 import { USERS, PASSWORD } from '../helpers/api';
-import { uiSignup } from '../helpers/ui';
+import { uiSignup, uiSignupExpectError } from '../helpers/ui';
 import { API_BASE_URL } from '../playwright.config';
 
 /**
@@ -59,5 +59,41 @@ test.describe('TC-02 signup + logout', () => {
   test('@ui signup form creates an account and enters the app', async ({ page }) => {
     await uiSignup(page, { name: 'QA UI User', email: unique(), password: 'password123' });
     await expect(page).toHaveURL(/\/app/);
+  });
+
+  test('@ui empty submit shows a validation error for every field', async ({ page }) => {
+    await page.goto('/signup');
+    await page.getByRole('button', { name: /create account/i }).click();
+    await expect(page.getByText(/name is required/i)).toBeVisible();
+    await expect(page.getByText(/enter a valid email/i)).toBeVisible();
+    await expect(page.getByText(/at least 8 characters/i)).toBeVisible();
+    await expect(page).toHaveURL(/\/signup/);
+  });
+
+  test('@ui a malformed email is rejected client-side', async ({ page }) => {
+    await uiSignupExpectError(
+      page,
+      { name: 'QA', email: 'not-an-email', password: 'password123' },
+      /enter a valid email/i,
+    );
+  });
+
+  test('@ui a short password is rejected client-side', async ({ page }) => {
+    await uiSignupExpectError(
+      page,
+      { name: 'QA', email: unique(), password: '1234567' },
+      /at least 8 characters/i,
+    );
+  });
+
+  test('@ui a whitespace-only name is rejected (not sent to the server)', async ({ page }) => {
+    // Regression: the client schema trims before validating, so "   " must fail
+    // the same "Name is required" rule as an empty field rather than reaching the
+    // API and coming back as a generic 400.
+    await uiSignupExpectError(
+      page,
+      { name: '   ', email: unique(), password: 'password123' },
+      /name is required/i,
+    );
   });
 });

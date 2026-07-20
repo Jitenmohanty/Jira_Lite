@@ -14,9 +14,9 @@ import { Field, FieldError, Label } from '@/components/ui/field';
 import { GoogleAuthButton } from '@/components/auth/google-button';
 
 const schema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(8, 'At least 8 characters'),
+  name: z.string().trim().min(1, 'Name is required').max(120, 'Name is too long'),
+  email: z.string().trim().email('Enter a valid email'),
+  password: z.string().min(8, 'At least 8 characters').max(200, 'Password is too long'),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -27,6 +27,7 @@ export default function SignupPage() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
@@ -36,6 +37,21 @@ export default function SignupPage() {
       await signup.mutateAsync(values);
       router.push('/app');
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'VALIDATION') {
+        // The server returns field-level errors in `details.fieldErrors`; map
+        // them back onto the inputs instead of showing a generic banner.
+        const fieldErrors = (err.details as Record<string, string[]> | undefined) ?? {};
+        let mapped = false;
+        for (const field of ['name', 'email', 'password'] as const) {
+          const message = fieldErrors[field]?.[0];
+          if (message) {
+            setError(field, { type: 'server', message });
+            mapped = true;
+          }
+        }
+        setFormError(mapped ? null : err.message);
+        return;
+      }
       setFormError(err instanceof ApiError ? err.message : 'Something went wrong');
     }
   });

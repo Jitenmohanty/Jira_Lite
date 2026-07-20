@@ -74,6 +74,37 @@ export async function uiSignup(
   );
 }
 
+/**
+ * Fill the signup form with the given values and submit, expecting the client
+ * to REJECT it (stay on /signup and surface `errorRe`). Retries the cold-route
+ * race where a pre-hydration native submit turns the click into a GET.
+ */
+export async function uiSignupExpectError(
+  page: Page,
+  user: { name: string; email: string; password: string },
+  errorRe: RegExp,
+): Promise<void> {
+  await submitAuthForm(
+    page,
+    '/signup',
+    async () => {
+      await page.fill('#name', user.name);
+      await page.fill('#email', user.email);
+      await page.fill('#password', user.password);
+    },
+    /create account/i,
+    async () => {
+      // Hydrated path → validation error shown. Native submit → no error → retry.
+      return page
+        .getByText(errorRe)
+        .first()
+        .waitFor({ state: 'visible', timeout: 8_000 })
+        .then(() => true)
+        .catch(() => false);
+    },
+  );
+}
+
 /** Attempt a UI login expected to FAIL, and wait for the error message. Retries the cold-route race. */
 export async function uiLoginExpectError(
   page: Page,
