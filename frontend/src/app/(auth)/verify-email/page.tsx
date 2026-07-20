@@ -3,14 +3,36 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useVerifyEmail } from '@/hooks/use-auth';
-import { Spinner } from '@/components/ui/spinner';
+
+type Status = 'pending' | 'ok' | 'error';
+
+const STATES: Record<Status, { icon: typeof CheckCircle2; tone: string; title: string; desc: string }> = {
+  pending: {
+    icon: Loader2,
+    tone: 'text-muted',
+    title: 'Verifying your email…',
+    desc: 'Hang tight while we confirm your address.',
+  },
+  ok: {
+    icon: CheckCircle2,
+    tone: 'text-success',
+    title: 'Email verified',
+    desc: 'Your email address is confirmed and your account is ready.',
+  },
+  error: {
+    icon: XCircle,
+    tone: 'text-danger',
+    title: 'Verification failed',
+    desc: 'This link is invalid or has expired. Try requesting a new one.',
+  },
+};
 
 function VerifyInner() {
   const token = useSearchParams().get('token') ?? '';
   const verify = useVerifyEmail();
-  const [status, setStatus] = useState<'pending' | 'ok' | 'error'>('pending');
+  const [status, setStatus] = useState<Status>('pending');
   const ran = useRef(false);
 
   useEffect(() => {
@@ -26,36 +48,27 @@ function VerifyInner() {
       .catch(() => setStatus('error'));
   }, [token, verify]);
 
-  if (status === 'pending') {
-    return (
-      <div className="flex flex-col items-center gap-3 py-4 text-muted">
-        <Spinner className="h-5 w-5" />
-        <p className="text-sm">Verifying your email…</p>
-      </div>
-    );
-  }
-
-  if (status === 'ok') {
-    return (
-      <div className="flex flex-col items-center gap-2 py-2 text-center">
-        <CheckCircle2 className="text-success" size={28} />
-        <h1 className="text-lg font-semibold">Email verified</h1>
-        <p className="mb-2 text-sm text-muted">Your email address is confirmed.</p>
-        <Link href="/app" className="text-sm text-accent hover:underline">
-          Go to Tracer
-        </Link>
-      </div>
-    );
-  }
+  const { icon: Icon, tone, title, desc } = STATES[status];
 
   return (
-    <div className="flex flex-col items-center gap-2 py-2 text-center">
-      <XCircle className="text-danger" size={28} />
-      <h1 className="text-lg font-semibold">Verification failed</h1>
-      <p className="mb-2 text-sm text-muted">This link is invalid or has expired.</p>
-      <Link href="/app" className="text-sm text-accent hover:underline">
-        Go to Tracer
-      </Link>
+    <div className="flex flex-col items-center py-2 text-center">
+      <span
+        className={`mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-border bg-surface-elevated ${tone}`}
+      >
+        <Icon size={26} className={status === 'pending' ? 'animate-spin' : undefined} />
+      </span>
+      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+      <p className="mt-1.5 max-w-[16rem] text-sm leading-relaxed text-muted">{desc}</p>
+
+      {status !== 'pending' && (
+        <Link
+          href="/app"
+          className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+        >
+          Go to Tracer
+          <ArrowRight size={14} />
+        </Link>
+      )}
     </div>
   );
 }

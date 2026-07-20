@@ -5,13 +5,25 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { ArrowLeft, KeyRound, Mail, MailCheck } from 'lucide-react';
 import { useForgotPassword } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, FieldError, Label } from '@/components/ui/field';
+import { AuthField, AuthHeader } from '@/components/auth/auth-ui';
 
-const schema = z.object({ email: z.string().email('Enter a valid email') });
+const schema = z.object({ email: z.string().trim().email('Enter a valid email') });
 type FormValues = z.infer<typeof schema>;
+
+function BackToSignIn({ className }: { className?: string }) {
+  return (
+    <Link
+      href="/login"
+      className={`inline-flex items-center gap-1.5 text-sm text-accent hover:underline ${className ?? ''}`}
+    >
+      <ArrowLeft size={14} />
+      Back to sign in
+    </Link>
+  );
+}
 
 export default function ForgotPasswordPage() {
   const forgot = useForgotPassword();
@@ -30,39 +42,41 @@ export default function ForgotPasswordPage() {
   if (sent) {
     return (
       <div>
-        <h1 className="mb-1 text-lg font-semibold">Check your inbox</h1>
-        <p className="mb-6 text-sm text-muted">
-          If an account exists for that email, we&apos;ve sent a password reset link. It expires in
-          1 hour.
-        </p>
-        <Link href="/login" className="text-sm text-accent hover:underline">
-          Back to sign in
-        </Link>
+        <AuthHeader
+          icon={MailCheck}
+          title="Check your inbox"
+          subtitle="If an account exists for that email, we've sent a password reset link. It expires in 1 hour."
+        />
+        <BackToSignIn />
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="mb-1 text-lg font-semibold">Reset your password</h1>
-      <p className="mb-6 text-sm text-muted">
-        Enter your email and we&apos;ll send you a reset link.
-      </p>
+      <AuthHeader
+        icon={KeyRound}
+        title="Reset your password"
+        subtitle="Enter your email and we'll send you a reset link."
+      />
       <form onSubmit={onSubmit} noValidate>
-        <Field>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" autoComplete="email" {...register('email')} />
-          <FieldError>{errors.email?.message}</FieldError>
-        </Field>
-        <Button type="submit" className="w-full" loading={forgot.isPending}>
+        <AuthField
+          id="email"
+          label="Email"
+          icon={Mail}
+          type="email"
+          autoComplete="email"
+          placeholder="you@company.com"
+          error={errors.email?.message}
+          {...register('email')}
+        />
+        <Button type="submit" className="h-10 w-full" loading={forgot.isPending}>
           Send reset link
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-muted">
-        <Link href="/login" className="text-accent hover:underline">
-          Back to sign in
-        </Link>
-      </p>
+      <div className="mt-5 border-t border-border-subtle pt-5 text-center">
+        <BackToSignIn />
+      </div>
     </div>
   );
 }

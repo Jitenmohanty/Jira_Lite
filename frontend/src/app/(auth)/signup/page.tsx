@@ -6,12 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { ArrowRight, Lock, Mail, User, UserPlus } from 'lucide-react';
 import { useSignup } from '@/hooks/use-auth';
 import { ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, FieldError, Label } from '@/components/ui/field';
 import { GoogleAuthButton } from '@/components/auth/google-button';
+import { AuthError, AuthField, AuthHeader } from '@/components/auth/auth-ui';
 
 const schema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(120, 'Name is too long'),
@@ -58,50 +58,66 @@ export default function SignupPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-lg font-semibold">Create your account</h1>
-      <p className="mb-6 text-sm text-muted">Start tracking work in minutes.</p>
+      <AuthHeader
+        icon={UserPlus}
+        title="Create your account"
+        subtitle="Start tracking work in minutes — no credit card required."
+      />
 
       <GoogleAuthButton />
 
       <form onSubmit={onSubmit} noValidate>
-        <Field>
-          <Label htmlFor="name">Name</Label>
-          <Input id="name" autoComplete="name" {...register('name')} />
-          <FieldError>{errors.name?.message}</FieldError>
-        </Field>
-        <Field>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" autoComplete="email" {...register('email')} />
-          <FieldError>{errors.email?.message}</FieldError>
-        </Field>
-        <Field>
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            {...register('password')}
-          />
-          <FieldError>{errors.password?.message}</FieldError>
-        </Field>
+        <AuthField
+          id="name"
+          label="Name"
+          icon={User}
+          autoComplete="name"
+          placeholder="Ada Lovelace"
+          error={errors.name?.message}
+          {...register('name')}
+        />
+        <AuthField
+          id="email"
+          label="Email"
+          icon={Mail}
+          type="email"
+          autoComplete="email"
+          placeholder="you@company.com"
+          error={errors.email?.message}
+          {...register('email')}
+        />
+        <AuthField
+          id="password"
+          label="Password"
+          icon={Lock}
+          type="password"
+          autoComplete="new-password"
+          placeholder="At least 8 characters"
+          error={errors.password?.message}
+          {...register('password')}
+        />
 
-        {formError && (
-          <p className="mb-4 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
-            {formError}
-          </p>
-        )}
+        <AuthError>{formError}</AuthError>
 
-        <Button type="submit" className="w-full" loading={signup.isPending}>
+        <Button type="submit" className="group h-10 w-full" loading={signup.isPending}>
           Create account
+          {!signup.isPending && (
+            <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+          )}
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted">
+      <p className="mt-4 text-center text-xs leading-relaxed text-faint">
+        By creating an account you agree to our <span className="text-muted">Terms</span> and{' '}
+        <span className="text-muted">Privacy Policy</span>.
+      </p>
+
+      <div className="mt-5 border-t border-border-subtle pt-5 text-center text-sm text-muted">
         Already have an account?{' '}
-        <Link href="/login" className="text-accent hover:underline">
+        <Link href="/login" className="font-medium text-accent hover:underline">
           Sign in
         </Link>
-      </p>
+      </div>
     </div>
   );
 }

@@ -6,15 +6,15 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { ArrowRight, LogIn, Lock, Mail } from 'lucide-react';
 import { useLogin } from '@/hooks/use-auth';
 import { ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, FieldError, Label } from '@/components/ui/field';
 import { GoogleAuthButton } from '@/components/auth/google-button';
+import { AuthError, AuthField, AuthHeader } from '@/components/auth/auth-ui';
 
 const schema = z.object({
-  email: z.string().email('Enter a valid email'),
+  email: z.string().trim().email('Enter a valid email'),
   password: z.string().min(1, 'Password is required'),
 });
 type FormValues = z.infer<typeof schema>;
@@ -48,52 +48,59 @@ export default function LoginPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-lg font-semibold">Welcome back</h1>
-      <p className="mb-6 text-sm text-muted">Sign in to your Tracer account.</p>
+      <AuthHeader
+        icon={LogIn}
+        title="Welcome back"
+        subtitle="Sign in to your Tracer account."
+      />
 
       <GoogleAuthButton />
 
       <form onSubmit={onSubmit} noValidate>
-        <Field>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" autoComplete="email" {...register('email')} />
-          <FieldError>{errors.email?.message}</FieldError>
-        </Field>
-        <Field>
-          <div className="mb-1.5 flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
+        <AuthField
+          id="email"
+          label="Email"
+          icon={Mail}
+          type="email"
+          autoComplete="email"
+          placeholder="you@company.com"
+          error={errors.email?.message}
+          {...register('email')}
+        />
+        <AuthField
+          id="password"
+          label="Password"
+          icon={Lock}
+          type="password"
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          error={errors.password?.message}
+          labelRight={
             <Link href="/forgot-password" className="text-xs text-accent hover:underline">
               Forgot password?
             </Link>
-          </div>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            {...register('password')}
-          />
-          <FieldError>{errors.password?.message}</FieldError>
-        </Field>
+          }
+          {...register('password')}
+        />
 
-        {formError && (
-          <p className="mb-4 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
-            {formError}
-          </p>
-        )}
+        <AuthError>{formError}</AuthError>
 
-        <Button type="submit" className="w-full" loading={login.isPending}>
+        <Button type="submit" className="group h-10 w-full" loading={login.isPending}>
           Sign in
+          {!login.isPending && (
+            <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+          )}
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted">
+      <div className="mt-5 border-t border-border-subtle pt-5 text-center text-sm text-muted">
         No account?{' '}
-        <Link href="/signup" className="text-accent hover:underline">
+        <Link href="/signup" className="font-medium text-accent hover:underline">
           Create one
         </Link>
-      </p>
+      </div>
 
-      <div className="mt-6 rounded-md border border-border-subtle bg-background/50 px-3 py-2 text-center text-xs text-faint">
+      <div className="mt-5 rounded-md border border-border-subtle bg-background/50 px-3 py-2 text-center text-xs text-faint">
         Demo: owner@tracer.dev · password123
       </div>
     </div>

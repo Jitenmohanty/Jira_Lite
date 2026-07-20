@@ -6,11 +6,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { ArrowLeft, CheckCircle2, Lock, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useResetPassword } from '@/hooks/use-auth';
 import { ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, FieldError, Label } from '@/components/ui/field';
+import { AuthError, AuthField, AuthHeader } from '@/components/auth/auth-ui';
 
 const schema = z.object({ password: z.string().min(8, 'At least 8 characters') });
 type FormValues = z.infer<typeof schema>;
@@ -28,15 +28,33 @@ function ResetForm() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   if (!token) {
-    return <p className="text-sm text-danger">Missing or invalid reset link.</p>;
+    return (
+      <div>
+        <AuthHeader
+          icon={ShieldAlert}
+          title="Invalid reset link"
+          subtitle="This link is missing its token or has expired. Request a new one to continue."
+        />
+        <Link
+          href="/forgot-password"
+          className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline"
+        >
+          <ArrowLeft size={14} />
+          Request a new link
+        </Link>
+      </div>
+    );
   }
 
   if (done) {
     return (
       <div>
-        <h1 className="mb-1 text-lg font-semibold">Password updated</h1>
-        <p className="mb-6 text-sm text-muted">You can now sign in with your new password.</p>
-        <Button className="w-full" onClick={() => router.push('/login')}>
+        <AuthHeader
+          icon={CheckCircle2}
+          title="Password updated"
+          subtitle="You can now sign in with your new password."
+        />
+        <Button className="h-10 w-full" onClick={() => router.push('/login')}>
           Sign in
         </Button>
       </div>
@@ -55,33 +73,36 @@ function ResetForm() {
 
   return (
     <div>
-      <h1 className="mb-1 text-lg font-semibold">Set a new password</h1>
-      <p className="mb-6 text-sm text-muted">Choose a strong password for your account.</p>
+      <AuthHeader
+        icon={ShieldCheck}
+        title="Set a new password"
+        subtitle="Choose a strong password for your account."
+      />
       <form onSubmit={onSubmit} noValidate>
-        <Field>
-          <Label htmlFor="password">New password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            {...register('password')}
-          />
-          <FieldError>{errors.password?.message}</FieldError>
-        </Field>
-        {error && (
-          <p className="mb-4 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
-            {error}
-          </p>
-        )}
-        <Button type="submit" className="w-full" loading={reset.isPending}>
+        <AuthField
+          id="password"
+          label="New password"
+          icon={Lock}
+          type="password"
+          autoComplete="new-password"
+          placeholder="At least 8 characters"
+          error={errors.password?.message}
+          {...register('password')}
+        />
+        <AuthError>{error}</AuthError>
+        <Button type="submit" className="h-10 w-full" loading={reset.isPending}>
           Update password
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-muted">
-        <Link href="/login" className="text-accent hover:underline">
+      <div className="mt-5 border-t border-border-subtle pt-5 text-center">
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline"
+        >
+          <ArrowLeft size={14} />
           Back to sign in
         </Link>
-      </p>
+      </div>
     </div>
   );
 }
