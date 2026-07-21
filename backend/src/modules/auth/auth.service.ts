@@ -3,6 +3,7 @@ import { db } from '../../db/client';
 import { users, type User } from '../../db/schema';
 import { hashPassword, verifyPassword, verifyPasswordDummy } from '../../lib/password';
 import { conflict, unauthorized } from '../../lib/http-errors';
+import { isUniqueViolation } from '../../lib/db-errors';
 import { sendVerificationEmail } from './verification.service';
 import type { LoginInput, SignupInput } from './auth.schemas';
 
@@ -27,10 +28,18 @@ export async function signup(input: SignupInput): Promise<PublicUser> {
   if (existing) throw conflict('An account with that email already exists');
 
   const passwordHash = await hashPassword(input.password);
-  const [user] = await db
-    .insert(users)
-    .values({ email: input.email, name: input.name, passwordHash })
-    .returning();
+  let user: User | undefined;
+  try {
+    [user] = await db
+      .insert(users)
+      .values({ email: input.email, name: input.name, passwordHash })
+      .returning();
+  } catch (err) {
+    // Lost the race with a concurrent signup for the same email; the unique
+    // index on users.email catches it. Return the same 409 as the pre-check.
+    if (isUniqueViolation(err)) throw conflict('An account with that email already exists');
+    throw err;
+  }
 
   if (!user) throw new Error('Failed to create user');
 

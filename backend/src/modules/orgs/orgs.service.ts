@@ -169,12 +169,3 @@ export async function changeRole(
     return { userId: targetUserId, role: input.role };
   });
 }
-
-/** Guards against acting on a nonexistent org (used before RBAC-less reads). */
-export async function assertOrgExists(orgId: string) {
-  const org = await db.query.organizations.findFirst({
-    where: eq(organizations.id, orgId),
-    columns: { id: true },
-  });
-  if (!org) throw notFound('Organization not found');
-}

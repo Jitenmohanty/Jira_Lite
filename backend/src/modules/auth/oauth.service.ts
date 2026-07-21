@@ -5,6 +5,7 @@ import { users, type User } from '../../db/schema';
 import { env } from '../../config/env';
 import { enqueueEmail } from '../../queues/queues';
 import { badRequest } from '../../lib/http-errors';
+import { isUniqueViolation } from '../../lib/db-errors';
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -92,16 +93,27 @@ export async function upsertGoogleUser(profile: GoogleProfile): Promise<User> {
     return existing;
   }
 
-  const [user] = await db
-    .insert(users)
-    .values({
-      email,
-      name: profile.name ?? email.split('@')[0] ?? email,
-      passwordHash: null,
-      avatarUrl: profile.picture ?? null,
-      emailVerified: true,
-    })
-    .returning();
+  let user: User | undefined;
+  try {
+    [user] = await db
+      .insert(users)
+      .values({
+        email,
+        name: profile.name ?? email.split('@')[0] ?? email,
+        passwordHash: null,
+        avatarUrl: profile.picture ?? null,
+        emailVerified: true,
+      })
+      .returning();
+  } catch (err) {
+    // A concurrent sign-in created this user between the check and the insert.
+    // Return the now-existing row instead of failing (idempotent upsert).
+    if (isUniqueViolation(err)) {
+      const row = await db.query.users.findFirst({ where: eq(users.email, email) });
+      if (row) return row;
+    }
+    throw err;
+  }
   if (!user) throw new Error('Failed to create user');
 
   await enqueueEmail({ template: 'welcome', to: user.email, data: { name: user.name } });
