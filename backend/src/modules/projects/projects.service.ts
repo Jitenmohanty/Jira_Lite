@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { projects } from '../../db/schema';
 import { conflict, notFound } from '../../lib/http-errors';
+import { isUniqueViolation } from '../../lib/db-errors';
 import { recordActivity } from '../../lib/activity';
 import type { CreateProjectInput, UpdateProjectInput } from './projects.schemas';
 
@@ -57,23 +58,32 @@ export async function createProject(actorId: string, orgId: string, input: Creat
     key = await ensureUniqueKey(orgId, keyFromName(input.name));
   }
 
-  return db.transaction(async (tx) => {
-    const [project] = await tx
-      .insert(projects)
-      .values({ orgId, name: input.name, key, description: input.description ?? null })
-      .returning();
-    if (!project) throw new Error('Failed to create project');
+  try {
+    return await db.transaction(async (tx) => {
+      const [project] = await tx
+        .insert(projects)
+        .values({ orgId, name: input.name, key, description: input.description ?? null })
+        .returning();
+      if (!project) throw new Error('Failed to create project');
 
-    await recordActivity(tx, {
-      orgId,
-      actorId,
-      entityType: 'project',
-      entityId: project.id,
-      action: 'project.created',
-      metadata: { name: project.name, key: project.key },
+      await recordActivity(tx, {
+        orgId,
+        actorId,
+        entityType: 'project',
+        entityId: project.id,
+        action: 'project.created',
+        metadata: { name: project.name, key: project.key },
+      });
+      return project;
     });
-    return project;
-  });
+  } catch (err) {
+    // A concurrent insert can win the race after the check above; the unique
+    // (org_id, key) index catches it. Surface the same 409 rather than a 500.
+    if (isUniqueViolation(err)) {
+      throw conflict('A project with that key already exists in this organization');
+    }
+    throw err;
+  }
 }
 
 export async function updateProject(

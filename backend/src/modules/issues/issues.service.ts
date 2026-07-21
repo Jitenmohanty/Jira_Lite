@@ -151,6 +151,10 @@ export async function listIssues(projectId: string, q: ListIssuesQuery) {
 
 /** Org-wide issue search by title (used by the command palette). */
 export async function searchIssues(orgId: string, q: string, limit = 10) {
+  // Escape LIKE metacharacters so a literal `%`/`_`/`\` in the query is matched
+  // as text, not as a wildcard. (Drizzle parameterizes the value, so this is a
+  // correctness fix, not an injection one.)
+  const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
   const rows = await db
     .select({
       id: issues.id,
@@ -161,7 +165,7 @@ export async function searchIssues(orgId: string, q: string, limit = 10) {
     })
     .from(issues)
     .innerJoin(projects, eq(issues.projectId, projects.id))
-    .where(and(eq(projects.orgId, orgId), ilike(issues.title, `%${q}%`)))
+    .where(and(eq(projects.orgId, orgId), ilike(issues.title, pattern)))
     .orderBy(desc(issues.updatedAt))
     .limit(limit);
 

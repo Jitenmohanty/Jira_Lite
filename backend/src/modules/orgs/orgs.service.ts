@@ -2,6 +2,7 @@ import { and, count, eq } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { memberships, organizations, users, type Role } from '../../db/schema';
 import { badRequest, conflict, notFound } from '../../lib/http-errors';
+import { isUniqueViolation } from '../../lib/db-errors';
 import { recordActivity } from '../../lib/activity';
 import { slugify } from '../../lib/slug';
 import type { AddMemberInput, ChangeRoleInput, CreateOrgInput } from './orgs.schemas';
@@ -31,27 +32,33 @@ export async function createOrg(userId: string, input: CreateOrgInput) {
   }
   const slug = input.slug ?? (await ensureUniqueSlug(slugify(input.name)));
 
-  return db.transaction(async (tx) => {
-    const [org] = await tx
-      .insert(organizations)
-      .values({ name: input.name, slug })
-      .returning();
-    if (!org) throw new Error('Failed to create organization');
+  try {
+    return await db.transaction(async (tx) => {
+      const [org] = await tx
+        .insert(organizations)
+        .values({ name: input.name, slug })
+        .returning();
+      if (!org) throw new Error('Failed to create organization');
 
-    // The creator becomes the owner.
-    await tx.insert(memberships).values({ userId, orgId: org.id, role: 'owner' });
+      // The creator becomes the owner.
+      await tx.insert(memberships).values({ userId, orgId: org.id, role: 'owner' });
 
-    await recordActivity(tx, {
-      orgId: org.id,
-      actorId: userId,
-      entityType: 'organization',
-      entityId: org.id,
-      action: 'org.created',
-      metadata: { name: org.name },
+      await recordActivity(tx, {
+        orgId: org.id,
+        actorId: userId,
+        entityType: 'organization',
+        entityId: org.id,
+        action: 'org.created',
+        metadata: { name: org.name },
+      });
+
+      return { ...org, role: 'owner' as Role };
     });
-
-    return { ...org, role: 'owner' as Role };
-  });
+  } catch (err) {
+    // Lost the slug race after the check above; the unique index catches it.
+    if (isUniqueViolation(err)) throw conflict('That slug is already taken');
+    throw err;
+  }
 }
 
 /** Orgs the user belongs to, with their role in each. */
@@ -101,18 +108,24 @@ export async function addMember(actorId: string, orgId: string, input: AddMember
   });
   if (existing) throw conflict('That user is already a member');
 
-  return db.transaction(async (tx) => {
-    await tx.insert(memberships).values({ userId: user.id, orgId, role: input.role });
-    await recordActivity(tx, {
-      orgId,
-      actorId,
-      entityType: 'membership',
-      entityId: user.id,
-      action: 'member.added',
-      metadata: { email: user.email, role: input.role },
+  try {
+    return await db.transaction(async (tx) => {
+      await tx.insert(memberships).values({ userId: user.id, orgId, role: input.role });
+      await recordActivity(tx, {
+        orgId,
+        actorId,
+        entityType: 'membership',
+        entityId: user.id,
+        action: 'member.added',
+        metadata: { email: user.email, role: input.role },
+      });
+      return { userId: user.id, name: user.name, email: user.email, role: input.role };
     });
-    return { userId: user.id, name: user.name, email: user.email, role: input.role };
-  });
+  } catch (err) {
+    // Lost the race with a concurrent add; the (user_id, org_id) PK catches it.
+    if (isUniqueViolation(err)) throw conflict('That user is already a member');
+    throw err;
+  }
 }
 
 export async function changeRole(

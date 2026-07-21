@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { requireRole } from '../../middleware/require-role';
 import { orgFromIssue, orgFromProject } from '../../lib/org-resolvers';
 import { unauthorized } from '../../lib/http-errors';
@@ -15,8 +16,10 @@ import {
 /** Org-scoped issue search: mounted at /orgs/:orgId/issues. */
 export const orgIssuesRouter = Router({ mergeParams: true });
 
+const searchQuerySchema = z.object({ q: z.string().trim().default('') });
+
 orgIssuesRouter.get('/search', requireRole('member'), async (req, res) => {
-  const q = String(req.query.q ?? '').trim();
+  const { q } = searchQuerySchema.parse(req.query);
   if (q.length < 2) {
     res.json({ issues: [] });
     return;
