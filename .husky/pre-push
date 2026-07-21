@@ -1,0 +1,23 @@
+#  Blocks the push if either package fails to build — the final gate before
+#  code leaves the machine. Mirrors CI's build step.
+#  Full backend tests (npm test) run only in CI: they need Postgres + Redis
+#  services, so gating pushes on them locally would create false failures.
+set -e
+
+echo "husky pre-push → build"
+
+if [ -d backend/node_modules ]; then
+  echo "  backend: build"
+  ( cd backend && npm run build )
+else
+  echo "  ⚠ backend/node_modules missing — skipping (run: npm install --prefix backend)"
+fi
+
+if [ -d frontend/node_modules ]; then
+  echo "  frontend: build"
+  ( cd frontend && npm run build )
+else
+  echo "  ⚠ frontend/node_modules missing — skipping (run: npm install --prefix frontend)"
+fi
+
+echo "husky pre-push ✓"

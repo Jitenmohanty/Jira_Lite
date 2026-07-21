@@ -1,0 +1,27 @@
+#  Blocks the commit if static checks fail — mirrors CI's lint + typecheck.
+#  Fast, no external services. Tests + build run on pre-push / CI.
+#  A package with no node_modules is skipped (so a fresh clone can still
+#  make its first commit); checks are enforced once deps are installed.
+set -e
+
+echo "husky pre-commit → lint + typecheck"
+
+if [ -d backend/node_modules ]; then
+  echo "  backend: lint"
+  ( cd backend && npm run lint )
+  echo "  backend: typecheck"
+  ( cd backend && npm run typecheck )
+else
+  echo "  ⚠ backend/node_modules missing — skipping (run: npm install --prefix backend)"
+fi
+
+if [ -d frontend/node_modules ]; then
+  echo "  frontend: lint"
+  ( cd frontend && npm run lint )
+  echo "  frontend: typecheck"
+  ( cd frontend && npx tsc --noEmit )
+else
+  echo "  ⚠ frontend/node_modules missing — skipping (run: npm install --prefix frontend)"
+fi
+
+echo "husky pre-commit ✓"
