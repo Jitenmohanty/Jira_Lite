@@ -65,16 +65,21 @@ export function useUpdateIssue(projectId: string) {
       api.patch<{ issue: IssueDetail }>(`/issues/${id}`, patch).then((r) => r.issue),
     onMutate: async ({ id, patch }) => {
       await qc.cancelQueries({ queryKey: issuesRoot(projectId) });
+      await qc.cancelQueries({ queryKey: ['issue', id] });
       const previous = qc.getQueriesData<Issue[]>({ queryKey: issuesRoot(projectId) });
+      const previousDetail = qc.getQueryData<IssueDetail>(['issue', id]);
       qc.setQueriesData<Issue[]>({ queryKey: issuesRoot(projectId) }, (old) =>
         old?.map((i) => (i.id === id ? { ...i, ...patch } : i)),
       );
       // Also patch the detail cache if present.
       qc.setQueryData<IssueDetail>(['issue', id], (old) => (old ? { ...old, ...patch } : old));
-      return { previous };
+      return { previous, previousDetail };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (_err, vars, ctx) => {
       ctx?.previous?.forEach(([key, data]) => qc.setQueryData(key, data));
+      // Roll back the detail cache too — otherwise the open panel keeps showing
+      // the failed optimistic value until the onSettled refetch lands.
+      if (ctx) qc.setQueryData(['issue', vars.id], ctx.previousDetail);
       emitToast({
         variant: 'error',
         title: 'Update failed',

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateApiKey, hashApiKey, hashesEqual, looksLikeApiKey } from './api-key';
 import { signWebhook } from './webhook-signature';
-import { _internal } from './ssrf';
+import { _internal, assertPublicUrl, SsrfError } from './ssrf';
 
 describe('api-key', () => {
   it('generates a trc_ key whose stored hash matches a re-hash of the raw', () => {
@@ -41,17 +41,48 @@ describe('ssrf isBlockedIp', () => {
       '169.254.169.254', // cloud metadata
       '100.64.0.1', '0.0.0.0', '224.0.0.1',
       '::1', 'fe80::1', 'fc00::1', 'fd12:3456::1', '::ffff:127.0.0.1',
+      // IPv4-mapped/embedded in HEX — the form Node's URL parser actually
+      // produces for `[::ffff:127.0.0.1]` etc. (regression: these used to slip
+      // through because only the dotted-decimal form was matched).
+      '::ffff:7f00:1', // 127.0.0.1
+      '::ffff:a9fe:a9fe', // 169.254.169.254 metadata
+      '::ffff:0a00:0005', // 10.0.0.5
+      '::7f00:1', // IPv4-compatible 127.0.0.1
+      '::', // unspecified
+      'feb0::1', // fe80::/10 link-local upper edge
     ]) {
       expect(isBlockedIp(ip), ip).toBe(true);
     }
   });
   it('allows genuinely public addresses', () => {
-    for (const ip of ['8.8.8.8', '1.1.1.1', '93.184.216.34', '172.15.0.1', '172.32.0.1', '2606:4700:4700::1111']) {
+    for (const ip of [
+      '8.8.8.8', '1.1.1.1', '93.184.216.34', '172.15.0.1', '172.32.0.1',
+      '2606:4700:4700::1111', '2001:4860:4860::8888', '::ffff:8.8.8.8',
+    ]) {
       expect(isBlockedIp(ip), ip).toBe(false);
     }
   });
   it('blocks anything that is not a valid IP', () => {
     expect(isBlockedIp('not-an-ip')).toBe(true);
     expect(isBlockedIp('')).toBe(true);
+    expect(isBlockedIp('12345::x')).toBe(true);
+  });
+});
+
+describe('ssrf assertPublicUrl', () => {
+  it('rejects IPv4-mapped IPv6 literals that target internal hosts', async () => {
+    // These URLs canonicalize to hex IPv6 (::ffff:7f00:1) — the real bypass.
+    for (const url of [
+      'http://[::ffff:127.0.0.1]/',
+      'http://[::ffff:169.254.169.254]/latest/meta-data/',
+      'http://[::ffff:10.0.0.5]:8080/',
+      'http://[::1]/',
+    ]) {
+      await expect(assertPublicUrl(url), url).rejects.toBeInstanceOf(SsrfError);
+    }
+  });
+  it('rejects non-http(s) schemes and localhost', async () => {
+    await expect(assertPublicUrl('file:///etc/passwd')).rejects.toBeInstanceOf(SsrfError);
+    await expect(assertPublicUrl('http://localhost/')).rejects.toBeInstanceOf(SsrfError);
   });
 });

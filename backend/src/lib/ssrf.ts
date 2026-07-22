@@ -46,17 +46,68 @@ function isBlockedIpv4(ip: string, loopbackOk = false): boolean {
   return false;
 }
 
+/**
+ * Expand an IPv6 address to its 8 16-bit groups. Handles `::` compression and a
+ * trailing dotted-decimal IPv4 tail (e.g. `::ffff:1.2.3.4`). Returns null if the
+ * input isn't a well-formed IPv6 literal.
+ */
+function expandIpv6(ip: string): number[] | null {
+  let s = ip;
+  // Fold a trailing dotted IPv4 (`…:a.b.c.d`) into two hex groups so the whole
+  // address is uniform hex before we split it.
+  if (s.includes('.')) {
+    const lastColon = s.lastIndexOf(':');
+    if (lastColon === -1) return null;
+    const v4 = s.slice(lastColon + 1).split('.').map(Number);
+    if (v4.length !== 4 || v4.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+    const hi = ((v4[0]! << 8) | v4[1]!).toString(16);
+    const lo = ((v4[2]! << 8) | v4[3]!).toString(16);
+    s = `${s.slice(0, lastColon + 1)}${hi}:${lo}`;
+  }
+
+  const halves = s.split('::');
+  if (halves.length > 2) return null; // more than one `::` is invalid
+  const head = halves[0] ? halves[0]!.split(':') : [];
+  let groups: string[];
+  if (halves.length === 2) {
+    const tail = halves[1] ? halves[1]!.split(':') : [];
+    const missing = 8 - head.length - tail.length;
+    if (missing < 0) return null;
+    groups = [...head, ...Array<string>(missing).fill('0'), ...tail];
+  } else {
+    groups = head;
+  }
+  if (groups.length !== 8) return null;
+  return groups.map((g) => parseInt(g || '0', 16));
+}
+
 function isBlockedIpv6(ip: string, loopbackOk = false): boolean {
-  if (ip === '::1') return !loopbackOk; // loopback (relaxable in dev)
-  if (ip === '::') return true; // unspecified
-  // IPv4-mapped (::ffff:a.b.c.d) — check the embedded IPv4.
-  const mapped = ip.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isBlockedIpv4(mapped[1]!, loopbackOk);
-  const head = ip.split(':')[0] ?? '';
-  if (head.startsWith('fc') || head.startsWith('fd')) return true; // fc00::/7 unique-local
-  if (head.startsWith('fe8') || head.startsWith('fe9') || head.startsWith('fea') || head.startsWith('feb'))
-    return true; // fe80::/10 link-local
+  const g = expandIpv6(ip);
+  if (!g) return true; // unparseable → block
+
+  // IPv4-mapped (::ffff:a.b.c.d) and IPv4-compatible (::a.b.c.d): the first five
+  // (or six) groups are zero and the address embeds an IPv4 in the last two.
+  // Node's URL parser serializes these in HEX (e.g. `::ffff:7f00:1`), so we must
+  // reconstruct the IPv4 from the group values rather than string-match dotted form.
+  const firstFiveZero = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0;
+  if (firstFiveZero && g[5] === 0xffff) {
+    return isBlockedIpv4(groupsToIpv4(g[6]!, g[7]!), loopbackOk); // IPv4-mapped
+  }
+  if (firstFiveZero && g[5] === 0) {
+    if (g[6] === 0 && g[7] === 0) return true; // :: unspecified
+    if (g[6] === 0 && g[7] === 1) return !loopbackOk; // ::1 loopback (relaxable in dev)
+    return isBlockedIpv4(groupsToIpv4(g[6]!, g[7]!), loopbackOk); // IPv4-compatible / embedded
+  }
+
+  const head = g[0]!;
+  if (head >= 0xfc00 && head <= 0xfdff) return true; // fc00::/7 unique-local
+  if (head >= 0xfe80 && head <= 0xfebf) return true; // fe80::/10 link-local
   return false;
+}
+
+/** Rebuild a dotted-decimal IPv4 from the two low 16-bit groups of a v6 address. */
+function groupsToIpv4(hi: number, lo: number): string {
+  return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
 }
 
 /**

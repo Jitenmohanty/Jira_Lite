@@ -36,14 +36,22 @@ function ProjectBoard({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
 
   const [filters, setFilters] = useState<IssueFilters>({});
-  const { data: issues, isLoading } = useIssues(projectId, filters);
+  // The board groups by status (one column per status), so a status filter is
+  // both meaningless and — since the toolbar hides that control on the board —
+  // impossible to clear there. Ignore it in board view (the selection is kept
+  // for when the user switches back to the list).
+  const effectiveFilters: IssueFilters =
+    viewMode === 'board' ? { ...filters, status: undefined } : filters;
+  const { data: issues, isLoading } = useIssues(projectId, effectiveFilters);
 
   // The open issue lives in the URL (?issue=…) so it's deep-linkable/shareable.
   const selectedIssueId = searchParams.get('issue');
   const openIssue = (id: string) => router.push(`${pathname}?issue=${id}`, { scroll: false });
   const closeIssue = () => router.push(pathname, { scroll: false });
 
-  const hasFilters = Boolean(filters.status || filters.priority || filters.assignee);
+  const hasFilters = Boolean(
+    effectiveFilters.status || effectiveFilters.priority || effectiveFilters.assignee,
+  );
 
   // Keyboard shortcut: "C" creates an issue (ignored while typing in a field).
   useEffect(() => {

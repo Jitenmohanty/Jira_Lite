@@ -103,15 +103,18 @@ export async function createIssue(actorId: string, projectId: string, input: Cre
   void dispatchWebhookEvent(orgId, 'issue.created', webhookPayload(created)).catch(() => {});
 
   // Notify the assignee (in-app + email) after the transaction commits.
+  // Fire-and-forget like the side effects above: a notification/queue failure
+  // must not fail an already-committed issue creation (a 500 here makes the
+  // client retry and create a duplicate, consuming the issue counter twice).
   if (created.assigneeId) {
-    await notifyIssueAssigned({
+    void notifyIssueAssigned({
       assigneeId: created.assigneeId,
       actorId,
       issueId: created.id,
       projectId,
       identifier: created.identifier,
       title: created.title,
-    });
+    }).catch(() => {});
   }
   return created;
 }
@@ -234,16 +237,17 @@ export async function updateIssue(actorId: string, issueId: string, input: Updat
     webhookPayload(updated),
   ).catch(() => {});
 
-  // Notify on a genuine reassignment to a different person.
+  // Notify on a genuine reassignment to a different person. Fire-and-forget so a
+  // queue failure can't 500 an already-committed update (see createIssue).
   if (updated.assigneeId && updated.assigneeId !== current.assigneeId) {
-    await notifyIssueAssigned({
+    void notifyIssueAssigned({
       assigneeId: updated.assigneeId,
       actorId,
       issueId: updated.id,
       projectId: current.projectId,
       identifier: updated.identifier,
       title: updated.title,
-    });
+    }).catch(() => {});
   }
   return updated;
 }

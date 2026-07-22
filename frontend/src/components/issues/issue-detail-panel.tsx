@@ -31,9 +31,14 @@ export function IssueDetailPanel({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
-  // Sync local edit buffers when the issue loads/changes.
+  // Seed the local edit buffers only when a *different* issue is shown — not on
+  // every `issue` reference change. Optimistic patches and realtime refetches
+  // produce a new object for the same issue; re-seeding on those would silently
+  // wipe text the user has typed but not yet saved.
+  const syncedId = useRef<string | null>(null);
   useEffect(() => {
-    if (issue) {
+    if (issue && syncedId.current !== issue.id) {
+      syncedId.current = issue.id;
       setTitle(issue.title);
       setDescription(issue.description ?? '');
     }
