@@ -1,17 +1,20 @@
 import rateLimit, { ipKeyGenerator, type Store } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
-import { createRedisConnection } from '../queues/connection';
+import { createRateLimitRedis } from '../queues/connection';
 import { env } from '../config/env';
 import { logger } from '../lib/logger';
 
 /**
  * Redis-backed store so limits are shared across API instances (horizontal
- * scaling). Falls back to the in-memory store if Redis can't be reached, so a
- * Redis outage degrades rather than breaks the endpoint.
+ * scaling). The client fails fast when Redis is unreachable (see
+ * `createRateLimitRedis`), and the limiters set `passOnStoreError: true`, so a
+ * Redis outage lets requests through (degrades) instead of hanging or 500-ing
+ * the auth path. If the client can't even be constructed we drop to the
+ * built-in in-memory store.
  */
 function buildStore(prefix: string): Store | undefined {
   try {
-    const client = createRedisConnection();
+    const client = createRateLimitRedis();
     client.on('error', (err) => logger.warn({ err: err.message }, 'rate-limit redis error'));
     return new RedisStore({
       // ioredis: forward the raw command to Redis (command first, then args).
@@ -35,6 +38,9 @@ export const authLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   store: buildStore('rl:auth:'),
+  // Availability over strictness: if the Redis store errors (outage), let the
+  // request through rather than hang/500 the whole auth surface.
+  passOnStoreError: true,
   message: {
     error: { code: 'RATE_LIMITED', message: 'Too many attempts. Please try again later.' },
   },
@@ -50,6 +56,7 @@ export const aiLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   store: buildStore('rl:ai:'),
+  passOnStoreError: true,
   // Key per authenticated user; fall back to an IPv6-safe IP key for safety.
   keyGenerator: (req) => req.user?.id ?? ipKeyGenerator(req.ip ?? '', 56),
   message: {

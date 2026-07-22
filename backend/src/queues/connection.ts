@@ -23,7 +23,24 @@ function parseRedisUrl(urlStr: string): ConnectionOptions {
  */
 export const bullConnection: ConnectionOptions = parseRedisUrl(env.REDIS_URL);
 
-/** A standalone ioredis client for direct use (e.g. Redis-backed rate limiting). */
-export function createRedisConnection(): Redis {
-  return new Redis(env.REDIS_URL, { maxRetriesPerRequest: null, enableReadyCheck: false });
+/**
+ * ioredis client for the Redis-backed rate limiter. Unlike the BullMQ
+ * connection (which sets `maxRetriesPerRequest: null` and queues blocking
+ * commands indefinitely), this client must **fail fast** when Redis is
+ * unavailable: `enableOfflineQueue: false` rejects commands immediately instead
+ * of queueing them forever, and `commandTimeout` caps a connected-but-hung
+ * server. That fast rejection is what lets the limiter fail *open* (see
+ * `middleware/rate-limit.ts` `passOnStoreError`) so a Redis outage degrades to
+ * "no throttling" rather than hanging every /auth request.
+ */
+export function createRateLimitRedis(): Redis {
+  return new Redis(env.REDIS_URL, {
+    maxRetriesPerRequest: 1,
+    enableReadyCheck: false,
+    enableOfflineQueue: false,
+    commandTimeout: 1000,
+    // Keep trying to reconnect in the background so throttling resumes once
+    // Redis recovers, but never block a request waiting for it.
+    retryStrategy: (times) => Math.min(times * 200, 5000),
+  });
 }
